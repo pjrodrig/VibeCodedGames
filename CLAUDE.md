@@ -97,3 +97,4 @@ The Electron app provides:
 ## Development Workflow
 
 - **Commit Between Changes**: Always create git commits between significant changes to maintain clear version history and enable easy rollback if needed
+- **Commit Between Every Request**: MANDATORY - Create a git commit after completing each individual user request, no matter how small. Each request should result in exactly one atomic commit before proceeding to the next request.
