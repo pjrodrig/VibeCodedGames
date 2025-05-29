@@ -15,6 +15,7 @@ let levelKillRequirement = 10; // Enemies to kill per level
 let levelTimer = 0; // Frames since level started
 let boss = null; // Boss enemy for level 5
 let bossDefeated = false;
+let finalBossDefeated = false; // Track level 10 boss defeat
 
 // Developer settings with localStorage support
 const defaultSettings = {
@@ -331,7 +332,8 @@ function getEnemyEmoji(type) {
         'zigzag': '👾',
         'spiral': '🌀',
         'burst': '💥',
-        'boss': '👹'
+        'boss': '👹',
+        'finalBoss': '🔥'
     };
     return emojis[type] || '🛸';
 }
@@ -364,6 +366,147 @@ function spawnBoss() {
     enemyBullets = [];
     
     console.log('BOSS FIGHT!');
+}
+
+function spawnFinalBoss() {
+    boss = {
+        x: canvas.width + 100,
+        y: canvas.height / 2,
+        targetX: canvas.width * 0.75,
+        targetY: canvas.height / 2,
+        type: 'finalBoss',
+        size: 150, // Even bigger than first boss
+        health: 4000, // Double the first boss health
+        maxHealth: 4000,
+        speed: 1.5, // Faster than first boss
+        shootTimer: 0,
+        angle: 0,
+        phase: 'entering', // 'entering', 'fighting', 'teleporting', 'dying', 'defeated'
+        attackPattern: 0,
+        emoji: '💀', // Death emoji for final boss
+        isBoss: true,
+        isFinalBoss: true,
+        shieldActive: false,
+        shieldTimer: 0,
+        shieldDuration: 240, // 4 seconds at 60fps
+        shieldCooldown: 180, // 3 seconds between shields (more frequent)
+        teleportTimer: 0,
+        teleportCooldown: 360, // Teleport every 6 seconds
+        laserCharging: false,
+        laserTimer: 0,
+        summonTimer: 0
+    };
+    
+    // Clear all regular enemies when boss spawns
+    enemies = [];
+    enemyBullets = [];
+    
+    console.log('FINAL BOSS FIGHT! THE ULTIMATE CHALLENGE!');
+}
+
+function updateFinalBoss() {
+    // Final boss has more complex mechanics
+    
+    // Handle teleportation
+    boss.teleportTimer++;
+    if (boss.teleportTimer >= boss.teleportCooldown && !boss.laserCharging) {
+        boss.phase = 'teleporting';
+        boss.teleportTimer = 0;
+        
+        // Create teleport effect
+        createParticles(boss.x, boss.y, '✨', 20);
+        
+        // Teleport to new position
+        setTimeout(() => {
+            boss.x = Math.random() * (canvas.width * 0.3) + canvas.width * 0.5;
+            boss.y = Math.random() * (canvas.height - 200) + 100;
+            boss.phase = 'fighting';
+            createParticles(boss.x, boss.y, '✨', 20);
+        }, 500);
+        return;
+    }
+    
+    // Final boss movement - figure 8 pattern
+    boss.angle += 0.02;
+    boss.x = boss.targetX + Math.sin(boss.angle) * 100;
+    boss.y = canvas.height / 2 + Math.sin(boss.angle * 2) * 100;
+    
+    // Handle shield mechanics (more frequent)
+    boss.shieldTimer++;
+    
+    if (!boss.shieldActive && boss.shieldTimer >= boss.shieldCooldown) {
+        boss.shieldActive = true;
+        boss.shieldTimer = 0;
+    }
+    
+    if (boss.shieldActive && boss.shieldTimer >= boss.shieldDuration) {
+        boss.shieldActive = false;
+        boss.shieldTimer = 0;
+    }
+    
+    // Final boss shooting patterns
+    boss.shootTimer++;
+    
+    // Change attack pattern every 300 frames (5 seconds)
+    if (boss.shootTimer % 300 === 0) {
+        boss.attackPattern = (boss.attackPattern + 1) % 5; // 5 attack patterns
+    }
+    
+    // Execute attack patterns
+    switch (boss.attackPattern) {
+        case 0: // Machine gun
+            if (boss.shootTimer % 10 === 0) {
+                shootFinalBossBullet('machinegun');
+            }
+            break;
+        case 1: // Laser beam warning then fire
+            if (boss.shootTimer % 180 === 0) {
+                boss.laserCharging = true;
+                boss.laserTimer = 0;
+            }
+            if (boss.laserCharging) {
+                boss.laserTimer++;
+                if (boss.laserTimer === 60) { // 1 second charge
+                    shootFinalBossBullet('laser');
+                    boss.laserCharging = false;
+                }
+            }
+            break;
+        case 2: // Bullet hell spiral
+            if (boss.shootTimer % 5 === 0) {
+                shootFinalBossBullet('hellspiral');
+            }
+            break;
+        case 3: // Summon minions
+            if (boss.shootTimer % 240 === 0) { // Every 4 seconds
+                summonMinions();
+            }
+            if (boss.shootTimer % 60 === 0) {
+                shootFinalBossBullet('spread');
+            }
+            break;
+        case 4: // Everything at once!
+            if (boss.shootTimer % 20 === 0) {
+                shootFinalBossBullet('chaos');
+            }
+            break;
+    }
+    
+    // Check if boss is defeated
+    if (boss.health <= 0 && boss.phase !== 'dying') {
+        boss.phase = 'dying';
+        boss.deathTimer = 0;
+        finalBossDefeated = true;
+        score += 10000; // Huge score bonus
+        
+        // Initial explosion
+        createExplosion(boss.x, boss.y);
+        if (window.audioManager) {
+            window.audioManager.playExplosion();
+        }
+        
+        updateUI();
+    }
 }
 
 function updateBossDeath() {
@@ -434,6 +577,12 @@ function updateBoss() {
             boss.y = boss.targetY;
         }
     } else if (boss.phase === 'fighting') {
+        // Different movement for final boss
+        if (boss.isFinalBoss) {
+            updateFinalBoss();
+            return;
+        }
+        
         // Boss movement pattern - slow vertical oscillation
         boss.angle += 0.01; // Slower oscillation to match slower movement
         boss.y = canvas.height / 2 + Math.sin(boss.angle) * 150;
@@ -497,6 +646,113 @@ function updateBoss() {
             
             updateUI();
         }
+    }
+}
+
+function shootFinalBossBullet(pattern) {
+    if (!boss) return;
+    
+    switch (pattern) {
+        case 'machinegun':
+            // Rapid aimed bullets
+            const mgAngle = Math.atan2(player.y - boss.y, player.x - boss.x);
+            const spread = (Math.random() - 0.5) * 0.3; // Some spread
+            enemyBullets.push({
+                x: boss.x - boss.size / 2,
+                y: boss.y,
+                dx: Math.cos(mgAngle + spread) * 5,
+                dy: Math.sin(mgAngle + spread) * 5,
+                size: 4,
+                emoji: '🔴',
+                damage: devSettings.enemyDamage
+            });
+            break;
+            
+        case 'laser':
+            // Create a line of bullets as a "laser"
+            for (let i = 0; i < 20; i++) {
+                enemyBullets.push({
+                    x: boss.x - boss.size / 2 - i * 30,
+                    y: boss.y,
+                    dx: -8,
+                    dy: 0,
+                    size: 8,
+                    emoji: '⚡',
+                    damage: devSettings.enemyDamage * 2
+                });
+            }
+            break;
+            
+        case 'hellspiral':
+            // Dense spiral pattern
+            const spiralBase = boss.shootTimer * 0.15;
+            for (let i = 0; i < 6; i++) {
+                const angle = spiralBase + (i / 6) * Math.PI * 2;
+                enemyBullets.push({
+                    x: boss.x,
+                    y: boss.y,
+                    dx: Math.cos(angle) * 3,
+                    dy: Math.sin(angle) * 3,
+                    size: 5,
+                    emoji: '🟣',
+                    damage: devSettings.enemyDamage
+                });
+            }
+            break;
+            
+        case 'spread':
+            // Wide spread shot
+            for (let i = -4; i <= 4; i++) {
+                enemyBullets.push({
+                    x: boss.x - boss.size / 2,
+                    y: boss.y,
+                    dx: -4,
+                    dy: i * 0.8,
+                    size: 6,
+                    emoji: '🟠',
+                    damage: devSettings.enemyDamage
+                });
+            }
+            break;
+            
+        case 'chaos':
+            // Random directions
+            for (let i = 0; i < 3; i++) {
+                const randomAngle = Math.random() * Math.PI * 2;
+                enemyBullets.push({
+                    x: boss.x,
+                    y: boss.y,
+                    dx: Math.cos(randomAngle) * 4,
+                    dy: Math.sin(randomAngle) * 4,
+                    size: 5,
+                    emoji: ['🔴', '🟠', '🟣', '⚡'][Math.floor(Math.random() * 4)],
+                    damage: devSettings.enemyDamage
+                });
+            }
+            break;
+    }
+}
+
+function summonMinions() {
+    // Summon 3 small enemies
+    for (let i = 0; i < 3; i++) {
+        const minion = {
+            x: boss.x,
+            y: boss.y + (i - 1) * 60,
+            targetX: boss.x - 150,
+            targetY: boss.y + (i - 1) * 80,
+            type: 'minion',
+            size: 20,
+            health: 30,
+            maxHealth: 30,
+            speed: 2,
+            shootTimer: i * 30, // Stagger their shots
+            angle: 0,
+            isMinion: true,
+            emoji: '👻',
+            movementPhase: 'entering'
+        };
+        enemies.push(minion);
     }
 }
 
@@ -1277,7 +1533,27 @@ function drawBoss() {
     ctx.fillText('BOSS', canvas.width / 2, 20);
     
     // Attack pattern indicator
-    const patterns = ['Rapid Fire', 'Spread Shot', 'Spiral Attack'];
+    let patterns;
+    if (boss.isFinalBoss) {
+        patterns = ['Machine Gun', 'LASER BEAM', 'Bullet Hell', 'Summon Minions', 'CHAOS MODE'];
+        
+        // Show laser charging warning
+        if (boss.laserCharging) {
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '24px Arial';
+            ctx.fillText('⚠️ LASER CHARGING ⚠️', canvas.width / 2, 100);
+            
+            // Draw laser targeting line
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(boss.x - boss.size / 2, boss.y);
+            ctx.lineTo(0, boss.y);
+            ctx.stroke();
+        }
+    } else {
+        patterns = ['Rapid Fire', 'Spread Shot', 'Spiral Attack'];
+    }
     ctx.font = '16px Arial';
     ctx.fillStyle = '#ff0';
     ctx.fillText(patterns[boss.attackPattern], canvas.width / 2, 60);
@@ -1372,10 +1648,13 @@ function levelUp() {
     enemiesKilled = 0; // Reset kill count for new level
     levelTimer = 0; // Reset level timer
     
-    // Check if this is the boss level
+    // Check if this is a boss level
     if (level === 5 && !bossDefeated) {
         spawnBoss();
         levelKillRequirement = 1; // Just need to defeat the boss
+    } else if (level === 10 && !finalBossDefeated) {
+        spawnFinalBoss();
+        levelKillRequirement = 1; // Just need to defeat the final boss
     } else {
         // Increase kill requirement for next level (scales up)
         levelKillRequirement = 10 + (level - 1) * 5; // 10, 15, 20, 25, etc.
@@ -1392,6 +1671,8 @@ function levelUp() {
     // Show level up message
     if (level === 5 && !bossDefeated) {
         console.log(`Level ${level}! BOSS FIGHT!`);
+    } else if (level === 10 && !finalBossDefeated) {
+        console.log(`Level ${level}! FINAL BOSS - THE ULTIMATE CHALLENGE!`);
     } else {
         console.log(`Level ${level}! Kill ${levelKillRequirement} enemies to advance.`);
     }
@@ -1417,6 +1698,7 @@ function restartGame() {
     levelTimer = 0;
     boss = null;
     bossDefeated = false;
+    finalBossDefeated = false;
     
     // Reset player
     player.x = 100;
