@@ -409,8 +409,8 @@ function updateBoss() {
         // Boss shooting patterns
         boss.shootTimer++;
         
-        // Change attack pattern every 300 frames
-        if (boss.shootTimer % 300 === 0) {
+        // Change attack pattern every 600 frames (10 seconds at 60fps)
+        if (boss.shootTimer % 600 === 0) {
             boss.attackPattern = (boss.attackPattern + 1) % 3;
         }
         
@@ -784,8 +784,10 @@ function checkCollisions() {
                         y: bullet.y,
                         dx: Math.cos(angleToPlayer) * 4,
                         dy: Math.sin(angleToPlayer) * 4,
-                        size: bullet.size,
-                        emoji: '🔵' // Blue reflected bullet
+                        size: bullet.size + 2, // Slightly larger for visibility
+                        emoji: '🔵', // Blue reflected bullet
+                        damage: devSettings.enemyDamage, // Use enemy damage for reflected bullets
+                        isReflected: true // Mark as reflected for potential special handling
                     });
                     createParticles(bullet.x, bullet.y, '🛡️', 3);
                     if (window.audioManager) {
@@ -812,11 +814,14 @@ function checkCollisions() {
     enemyBullets = enemyBullets.filter(bullet => {
         if (distance(bullet.x, bullet.y, player.x, player.y) < player.size / 2 + bullet.size) {
             if (!invincible) {
+                // Use bullet's damage property if it exists, otherwise use default enemy damage
+                const damage = bullet.damage || devSettings.enemyDamage;
+                
                 if (player.shield > 0) {
-                    player.shield -= devSettings.enemyDamage;
+                    player.shield -= damage;
                     createParticles(player.x, player.y, '🛡️', 3);
                 } else {
-                    player.health -= devSettings.enemyDamage;
+                    player.health -= damage;
                     createParticles(player.x, player.y, '💢', 5);
                     if (window.audioManager) {
                         window.audioManager.playPlayerDamage();
