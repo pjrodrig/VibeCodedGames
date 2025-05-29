@@ -387,11 +387,11 @@ function startAsteroidField(level) {
     enemyBullets = [];
     
     if (level === 3) {
-        asteroidFieldDuration = 1800; // 30 seconds at 60fps
-        console.log('ASTEROID FIELD! Survive for 30 seconds!');
+        asteroidFieldDuration = 3600; // 60 seconds at 60fps (doubled from 30)
+        console.log('ASTEROID FIELD! Survive for 60 seconds!');
     } else if (level === 7) {
-        asteroidFieldDuration = 2700; // 45 seconds at 60fps
-        console.log('INTENSE ASTEROID FIELD! Survive for 45 seconds!');
+        asteroidFieldDuration = 5400; // 90 seconds at 60fps (doubled from 45)
+        console.log('INTENSE ASTEROID FIELD! Survive for 90 seconds!');
     }
 }
 
@@ -415,8 +415,6 @@ function spawnAsteroid(isHardMode) {
         size: size,
         speed: speed,
         angle: angleVariation,
-        rotation: 0,
-        rotationSpeed: (Math.random() - 0.5) * 0.1,
         emoji: ['🌑', '☄️', '🪨'][Math.floor(Math.random() * 3)]
     });
 }
@@ -429,11 +427,13 @@ function updateAsteroids() {
     
     // Check if field is complete
     if (asteroidFieldTimer >= asteroidFieldDuration) {
-        asteroidFieldActive = false;
-        asteroids = [];
-        enemiesKilled = levelKillRequirement; // Complete the level
-        console.log('Asteroid field survived!');
-        return;
+        // Stop spawning new asteroids but wait for existing ones to leave
+        if (asteroids.length === 0) {
+            asteroidFieldActive = false;
+            enemiesKilled = levelKillRequirement; // Complete the level
+            console.log('Asteroid field survived!');
+            return;
+        }
     }
     
     // Spawn asteroids
@@ -453,7 +453,6 @@ function updateAsteroids() {
     asteroids = asteroids.filter(asteroid => {
         asteroid.x -= asteroid.speed;
         asteroid.y += Math.sin(asteroid.angle) * asteroid.speed * 0.5;
-        asteroid.rotation += asteroid.rotationSpeed;
         
         return asteroid.x > -asteroid.size;
     });
@@ -1577,14 +1576,10 @@ function drawEnemies() {
 
 function drawAsteroids() {
     asteroids.forEach(asteroid => {
-        ctx.save();
-        ctx.translate(asteroid.x, asteroid.y);
-        ctx.rotate(asteroid.rotation);
         ctx.font = `${asteroid.size}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(asteroid.emoji, 0, 0);
-        ctx.restore();
+        ctx.fillText(asteroid.emoji, asteroid.x, asteroid.y);
     });
     
     // Draw progress indicator during asteroid field
