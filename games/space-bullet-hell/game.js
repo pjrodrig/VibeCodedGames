@@ -9,6 +9,7 @@ let score = 0;
 let enemySpawnTimer = 0;
 let powerUpSpawnTimer = 0;
 let fpvMode = false;
+let invincible = false;
 
 // Developer settings with localStorage support
 const defaultSettings = {
@@ -570,20 +571,22 @@ function checkCollisions() {
     // Enemy bullets vs player
     enemyBullets = enemyBullets.filter(bullet => {
         if (distance(bullet.x, bullet.y, player.x, player.y) < player.size / 2 + bullet.size) {
-            if (player.shield > 0) {
-                player.shield -= 10;
-                createParticles(player.x, player.y, '🛡️', 3);
-            } else {
-                player.health -= 10;
-                createParticles(player.x, player.y, '💢', 5);
-                if (window.audioManager) {
-                    window.audioManager.playPlayerDamage();
+            if (!invincible) {
+                if (player.shield > 0) {
+                    player.shield -= 10;
+                    createParticles(player.x, player.y, '🛡️', 3);
+                } else {
+                    player.health -= 10;
+                    createParticles(player.x, player.y, '💢', 5);
+                    if (window.audioManager) {
+                        window.audioManager.playPlayerDamage();
+                    }
                 }
-            }
-            updateUI();
-            
-            if (player.health <= 0) {
-                gameOver();
+                updateUI();
+                
+                if (player.health <= 0) {
+                    gameOver();
+                }
             }
             return false;
         }
@@ -607,18 +610,20 @@ function checkCollisions() {
     // Player vs enemies
     enemies.forEach(enemy => {
         if (distance(enemy.x, enemy.y, player.x, player.y) < player.size / 2 + enemy.size / 2) {
-            player.health -= 20;
-            createExplosion(enemy.x, enemy.y);
-            if (window.audioManager) {
-                window.audioManager.playExplosion();
-                window.audioManager.playPlayerDamage();
+            if (!invincible) {
+                player.health -= 20;
+                createExplosion(enemy.x, enemy.y);
+                if (window.audioManager) {
+                    window.audioManager.playExplosion();
+                    window.audioManager.playPlayerDamage();
+                }
+                updateUI();
+                
+                if (player.health <= 0) {
+                    gameOver();
+                }
             }
-            enemy.dead = true; // Mark for removal instead of immediate health = 0
-            updateUI();
-            
-            if (player.health <= 0) {
-                gameOver();
-            }
+            enemy.dead = true; // Mark for removal regardless of invincibility
         }
     });
 }
@@ -1179,6 +1184,16 @@ setupSlider('star-count', 'starCount', (value) => {
 setupSlider('star-speed', 'starSpeed');
 
 setupSlider('game-speed', 'gameSpeed');
+
+// Invincibility toggle
+const invincibilityToggle = document.getElementById('invincibility-toggle');
+const invincibilityStatus = document.getElementById('invincibility-status');
+
+invincibilityToggle.addEventListener('change', (e) => {
+    invincible = e.target.checked;
+    invincibilityStatus.textContent = invincible ? 'ON' : 'OFF';
+    invincibilityStatus.style.color = invincible ? '#00ff00' : '#ff6600';
+});
 
 // Developer panel control buttons
 const saveDefaultsBtn = document.getElementById('save-defaults-btn');
