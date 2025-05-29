@@ -13,6 +13,8 @@ let invincible = false;
 let enemiesKilled = 0;
 let levelKillRequirement = 10; // Enemies to kill per level
 let levelTimer = 0; // Frames since level started
+let boss = null; // Boss enemy for level 5
+let bossDefeated = false;
 
 // Developer settings with localStorage support
 const defaultSettings = {
@@ -327,14 +329,173 @@ function getEnemyEmoji(type) {
         'basic': '🛸',
         'zigzag': '👾',
         'spiral': '🌀',
-        'burst': '💥'
+        'burst': '💥',
+        'boss': '👹'
     };
     return emojis[type] || '🛸';
+}
+
+function spawnBoss() {
+    boss = {
+        x: canvas.width + 100,
+        y: canvas.height / 2,
+        targetX: canvas.width * 0.75,
+        targetY: canvas.height / 2,
+        type: 'boss',
+        size: 60, // Much larger than regular enemies
+        health: 500, // Much more health
+        maxHealth: 500,
+        speed: 1,
+        shootTimer: 0,
+        angle: 0,
+        phase: 'entering', // 'entering', 'fighting', 'defeated'
+        attackPattern: 0,
+        emoji: '👹',
+        isBoss: true
+    };
+    
+    // Clear all regular enemies when boss spawns
+    enemies = [];
+    enemyBullets = [];
+    
+    console.log('BOSS FIGHT!');
+}
+
+function updateBoss() {
+    if (!boss || boss.phase === 'defeated') return;
+    
+    // Boss movement
+    if (boss.phase === 'entering') {
+        // Move to position
+        const dx = boss.targetX - boss.x;
+        const dy = boss.targetY - boss.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 5) {
+            boss.x += (dx / dist) * boss.speed * 2;
+            boss.y += (dy / dist) * boss.speed;
+        } else {
+            boss.phase = 'fighting';
+            boss.x = boss.targetX;
+            boss.y = boss.targetY;
+        }
+    } else if (boss.phase === 'fighting') {
+        // Boss movement pattern - slow vertical oscillation
+        boss.angle += 0.02;
+        boss.y = canvas.height / 2 + Math.sin(boss.angle) * 150;
+        
+        // Boss shooting patterns
+        boss.shootTimer++;
+        
+        // Change attack pattern every 300 frames
+        if (boss.shootTimer % 300 === 0) {
+            boss.attackPattern = (boss.attackPattern + 1) % 3;
+        }
+        
+        // Execute attack pattern
+        switch (boss.attackPattern) {
+            case 0: // Rapid fire
+                if (boss.shootTimer % 20 === 0) {
+                    shootBossBullet('rapid');
+                }
+                break;
+            case 1: // Spread shot
+                if (boss.shootTimer % 60 === 0) {
+                    shootBossBullet('spread');
+                }
+                break;
+            case 2: // Spiral attack
+                if (boss.shootTimer % 10 === 0) {
+                    shootBossBullet('spiral');
+                }
+                break;
+        }
+        
+        // Check if boss is defeated
+        if (boss.health <= 0) {
+            boss.phase = 'defeated';
+            bossDefeated = true;
+            score += 5000; // Big score bonus
+            enemiesKilled = levelKillRequirement; // Complete the level
+            createExplosion(boss.x, boss.y);
+            
+            // Create massive explosion effect
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    createExplosion(
+                        boss.x + (Math.random() - 0.5) * 80,
+                        boss.y + (Math.random() - 0.5) * 80
+                    );
+                }, i * 100);
+            }
+            
+            if (window.audioManager) {
+                window.audioManager.playExplosion();
+            }
+            
+            boss = null;
+            updateUI();
+        }
+    }
+}
+
+function shootBossBullet(pattern) {
+    if (!boss) return;
+    
+    switch (pattern) {
+        case 'rapid':
+            // Single aimed bullet
+            const angleToPlayer = Math.atan2(player.y - boss.y, player.x - boss.x);
+            enemyBullets.push({
+                x: boss.x - boss.size / 2,
+                y: boss.y,
+                dx: Math.cos(angleToPlayer) * 3,
+                dy: Math.sin(angleToPlayer) * 3,
+                size: 6,
+                emoji: '🔴'
+            });
+            break;
+            
+        case 'spread':
+            // 5-way spread
+            for (let i = -2; i <= 2; i++) {
+                enemyBullets.push({
+                    x: boss.x - boss.size / 2,
+                    y: boss.y,
+                    dx: -3,
+                    dy: i * 1.5,
+                    size: 5,
+                    emoji: '🟠'
+                });
+            }
+            break;
+            
+        case 'spiral':
+            // Spiral pattern
+            const spiralAngle = (boss.shootTimer * 0.2) % (Math.PI * 2);
+            for (let i = 0; i < 4; i++) {
+                const angle = spiralAngle + (i / 4) * Math.PI * 2;
+                enemyBullets.push({
+                    x: boss.x,
+                    y: boss.y,
+                    dx: Math.cos(angle) * 2.5,
+                    dy: Math.sin(angle) * 2.5,
+                    size: 4,
+                    emoji: '🟣'
+                });
+            }
+            break;
+    }
 }
 
 // Enemy movement and shooting
 function updateEnemies() {
     if (gamePaused || !gameRunning) return;
+    
+    // Update boss separately if it exists
+    if (boss) {
+        updateBoss();
+    }
     
     enemies = enemies.filter(enemy => {
         // FPV mode movement
@@ -589,6 +750,24 @@ function checkCollisions() {
         player.bullets.splice(index, 1);
     });
     
+    // Player bullets vs boss
+    if (boss && boss.phase === 'fighting') {
+        player.bullets = player.bullets.filter(bullet => {
+            if (distance(bullet.x, bullet.y, boss.x, boss.y) < boss.size / 2 + bullet.size) {
+                boss.health -= bullet.damage;
+                createParticles(bullet.x, bullet.y, '💥', 5);
+                
+                if (window.audioManager) {
+                    window.audioManager.playEnemyHit();
+                }
+                
+                updateUI();
+                return false;
+            }
+            return true;
+        });
+    }
+    
     // Enemy bullets vs player
     enemyBullets = enemyBullets.filter(bullet => {
         if (distance(bullet.x, bullet.y, player.x, player.y) < player.size / 2 + bullet.size) {
@@ -655,6 +834,24 @@ function checkCollisions() {
             enemy.dead = true; // Mark for removal regardless of invincibility
         }
     });
+    
+    // Player vs boss
+    if (boss && boss.phase === 'fighting') {
+        if (distance(boss.x, boss.y, player.x, player.y) < player.size / 2 + boss.size / 2) {
+            if (!invincible) {
+                player.health -= devSettings.enemyDamage * 3; // Boss collision does triple damage
+                createParticles(player.x, player.y, '💢', 10);
+                if (window.audioManager) {
+                    window.audioManager.playPlayerDamage();
+                }
+                updateUI();
+                
+                if (player.health <= 0) {
+                    gameOver();
+                }
+            }
+        }
+    }
 }
 
 function distance(x1, y1, x2, y2) {
@@ -761,6 +958,7 @@ function draw() {
     drawPlayer();
     drawBullets();
     drawEnemies();
+    drawBoss();
     drawPowerUps();
     drawParticles();
     drawCrosshairs();
@@ -903,6 +1101,50 @@ function drawEnemies() {
     });
 }
 
+function drawBoss() {
+    if (!boss || boss.phase === 'defeated') return;
+    
+    ctx.save();
+    
+    // Draw boss emoji
+    ctx.font = `${boss.size}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(boss.emoji, boss.x, boss.y);
+    
+    // Draw boss health bar at top of screen
+    const barWidth = 400;
+    const barHeight = 20;
+    const healthPercent = Math.max(0, boss.health) / boss.maxHealth;
+    
+    // Boss health bar background
+    ctx.fillStyle = '#333';
+    ctx.fillRect(canvas.width / 2 - barWidth / 2, 30, barWidth, barHeight);
+    
+    // Boss health bar
+    if (healthPercent > 0.66) {
+        ctx.fillStyle = '#0f0'; // Green
+    } else if (healthPercent > 0.33) {
+        ctx.fillStyle = '#ff0'; // Yellow
+    } else {
+        ctx.fillStyle = '#f00'; // Red
+    }
+    ctx.fillRect(canvas.width / 2 - barWidth / 2, 30, barWidth * healthPercent, barHeight);
+    
+    // Boss name
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px Arial';
+    ctx.fillText('BOSS', canvas.width / 2, 20);
+    
+    // Attack pattern indicator
+    const patterns = ['Rapid Fire', 'Spread Shot', 'Spiral Attack'];
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#ff0';
+    ctx.fillText(patterns[boss.attackPattern], canvas.width / 2, 60);
+    
+    ctx.restore();
+}
+
 function drawPowerUps() {
     ctx.font = '25px Arial';
     ctx.textAlign = 'center';
@@ -983,8 +1225,14 @@ function levelUp() {
     enemiesKilled = 0; // Reset kill count for new level
     levelTimer = 0; // Reset level timer
     
-    // Increase kill requirement for next level (scales up)
-    levelKillRequirement = 10 + (level - 1) * 5; // 10, 15, 20, 25, etc.
+    // Check if this is the boss level
+    if (level === 5 && !bossDefeated) {
+        spawnBoss();
+        levelKillRequirement = 1; // Just need to defeat the boss
+    } else {
+        // Increase kill requirement for next level (scales up)
+        levelKillRequirement = 10 + (level - 1) * 5; // 10, 15, 20, 25, etc.
+    }
     
     // Don't restore player health - they need to survive with what they have
     updateUI();
@@ -995,7 +1243,11 @@ function levelUp() {
     }
     
     // Show level up message
-    console.log(`Level ${level}! Kill ${levelKillRequirement} enemies to advance.`);
+    if (level === 5 && !bossDefeated) {
+        console.log(`Level ${level}! BOSS FIGHT!`);
+    } else {
+        console.log(`Level ${level}! Kill ${levelKillRequirement} enemies to advance.`);
+    }
 }
 
 function gameOver() {
@@ -1016,6 +1268,8 @@ function restartGame() {
     enemiesKilled = 0;
     levelKillRequirement = 10;
     levelTimer = 0;
+    boss = null;
+    bossDefeated = false;
     
     // Reset player
     player.x = 100;
@@ -1079,7 +1333,7 @@ function gameLoop() {
     checkCollisions();
     
     // Spawn enemies
-    if (gameRunning && !gamePaused) {
+    if (gameRunning && !gamePaused && !boss) { // Don't spawn enemies during boss fight
         enemySpawnTimer++;
         
         // Increase max enemies more aggressively with levels
