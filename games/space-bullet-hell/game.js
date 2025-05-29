@@ -21,6 +21,7 @@ const defaultSettings = {
     playerSpeed: 3,
     playerMaxHealth: 100,
     shootCooldown: 10,
+    playerDamageMultiplier: 1.0, // New setting for damage balancing
     enemySpeed: 1.5,
     enemySpawnRate: 180,
     enemyBaseHealth: 50,
@@ -275,7 +276,7 @@ function shootPlayerBullet() {
                 dy: -8, // Forward in FPV
                 dz: 4, // Depth component for FPV
                 size: 5,
-                damage: 10 + player.power * 5,
+                damage: Math.round((5 + player.power * 3) * devSettings.playerDamageMultiplier), // Reduced base damage
                 depth: 10 // Start close to player
             });
         } else {
@@ -285,7 +286,7 @@ function shootPlayerBullet() {
                 dx: 4,
                 dy: angle * 1.5,
                 size: 5,
-                damage: 10 + player.power * 5
+                damage: Math.round((5 + player.power * 3) * devSettings.playerDamageMultiplier) // Reduced base damage
             });
         }
     }
@@ -354,7 +355,7 @@ function spawnBoss() {
         isBoss: true,
         shieldActive: false,
         shieldTimer: 0,
-        shieldDuration: 180, // 3 seconds at 60fps
+        shieldDuration: 300, // 5 seconds at 60fps (was 3)
         shieldCooldown: 300 // 5 seconds between shields
     };
     
@@ -1591,6 +1592,8 @@ setupSlider('player-health', 'playerMaxHealth', (value) => {
 });
 
 setupSlider('shoot-cooldown', 'shootCooldown');
+
+setupSlider('player-damage-multiplier', 'playerDamageMultiplier');
 
 setupSlider('enemy-speed', 'enemySpeed');
 
