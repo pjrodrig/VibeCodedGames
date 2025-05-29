@@ -1059,10 +1059,14 @@ function drawPlayer() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
-    // Draw shield if active
+    // Draw shield bubble if active
     if (player.shield > 0) {
-        ctx.globalAlpha = player.shield / 100;
-        ctx.fillText('🛡️', player.x, player.y);
+        ctx.strokeStyle = '#4169E1'; // Royal blue
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.3 + (player.shield / 100) * 0.4; // Opacity based on shield strength
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.size / 2 + 5, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.globalAlpha = 1;
     }
     
