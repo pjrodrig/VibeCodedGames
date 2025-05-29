@@ -532,8 +532,12 @@ function checkCollisions() {
     if (!gameRunning) return;
     
     // Player bullets vs enemies
+    const bulletsToRemove = [];
+    
     player.bullets.forEach((bullet, bIndex) => {
         enemies.forEach(enemy => {
+            if (enemy.dead) return; // Skip already dead enemies
+            
             let collision = false;
             
             if (fpvMode && bullet.depth !== undefined && enemy.depth !== undefined) {
@@ -544,14 +548,19 @@ function checkCollisions() {
                 collision = distance(bullet.x, bullet.y, enemy.x, enemy.y) < enemy.size / 2 + bullet.size;
             }
             
-            if (collision) {
+            if (collision && !bulletsToRemove.includes(bIndex)) {
                 enemy.health -= bullet.damage;
-                player.bullets.splice(bIndex, 1);
-                createParticles(bullet.x, bullet.y, '💥', 5);
+                bulletsToRemove.push(bIndex);
+                
+                // Create particles at the exact collision point
+                const hitX = bullet.x;
+                const hitY = bullet.y;
+                createParticles(hitX, hitY, '💥', 5);
                 
                 // Create explosion if enemy dies
                 if (enemy.health <= 0) {
                     score += 100 * level;
+                    // Use enemy position for explosion
                     createExplosion(enemy.x, enemy.y);
                     if (window.audioManager) {
                         window.audioManager.playExplosion();
@@ -566,6 +575,12 @@ function checkCollisions() {
                 }
             }
         });
+    });
+    
+    // Remove bullets that hit
+    bulletsToRemove.sort((a, b) => b - a); // Sort in descending order
+    bulletsToRemove.forEach(index => {
+        player.bullets.splice(index, 1);
     });
     
     // Enemy bullets vs player
@@ -609,10 +624,14 @@ function checkCollisions() {
     
     // Player vs enemies
     enemies.forEach(enemy => {
+        if (enemy.dead) return; // Skip already dead enemies
+        
         if (distance(enemy.x, enemy.y, player.x, player.y) < player.size / 2 + enemy.size / 2) {
+            // Create explosion at enemy position before marking as dead
+            createExplosion(enemy.x, enemy.y);
+            
             if (!invincible) {
                 player.health -= 20;
-                createExplosion(enemy.x, enemy.y);
                 if (window.audioManager) {
                     window.audioManager.playExplosion();
                     window.audioManager.playPlayerDamage();
