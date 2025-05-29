@@ -366,8 +366,57 @@ function spawnBoss() {
     console.log('BOSS FIGHT!');
 }
 
+function updateBossDeath() {
+    // Death animation sequence
+    boss.deathTimer++;
+    
+    // Create staggered explosions
+    if (boss.deathTimer % 15 === 0 && boss.deathTimer < 180) { // Every 0.25 seconds for 3 seconds
+        const offsetX = (Math.random() - 0.5) * boss.size;
+        const offsetY = (Math.random() - 0.5) * boss.size;
+        createExplosion(boss.x + offsetX, boss.y + offsetY);
+        
+        // Shake effect
+        boss.x += (Math.random() - 0.5) * 4;
+        boss.y += (Math.random() - 0.5) * 4;
+        
+        if (window.audioManager) {
+            window.audioManager.playExplosion();
+        }
+    }
+    
+    // Final massive explosion
+    if (boss.deathTimer === 180) { // 3 seconds
+        // Create ring of explosions
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const dist = boss.size / 2;
+            createExplosion(
+                boss.x + Math.cos(angle) * dist,
+                boss.y + Math.sin(angle) * dist
+            );
+        }
+        
+        // Central big explosion
+        createBigExplosion(boss.x, boss.y);
+    }
+    
+    // Wait before completing level
+    if (boss.deathTimer >= 240) { // 4 seconds total
+        boss.phase = 'defeated';
+        enemiesKilled = levelKillRequirement; // Now complete the level
+        boss = null;
+    }
+}
+
 function updateBoss() {
     if (!boss || boss.phase === 'defeated') return;
+    
+    // Skip normal updates if boss is dying
+    if (boss.phase === 'dying') {
+        updateBossDeath();
+        return;
+    }
     
     // Boss movement
     if (boss.phase === 'entering') {
@@ -434,28 +483,18 @@ function updateBoss() {
         }
         
         // Check if boss is defeated
-        if (boss.health <= 0) {
-            boss.phase = 'defeated';
+        if (boss.health <= 0 && boss.phase !== 'dying') {
+            boss.phase = 'dying';
+            boss.deathTimer = 0;
             bossDefeated = true;
             score += 5000; // Big score bonus
-            enemiesKilled = levelKillRequirement; // Complete the level
+            
+            // Initial explosion
             createExplosion(boss.x, boss.y);
-            
-            // Create massive explosion effect
-            for (let i = 0; i < 5; i++) {
-                setTimeout(() => {
-                    createExplosion(
-                        boss.x + (Math.random() - 0.5) * 80,
-                        boss.y + (Math.random() - 0.5) * 80
-                    );
-                }, i * 100);
-            }
-            
             if (window.audioManager) {
                 window.audioManager.playExplosion();
             }
             
-            boss = null;
             updateUI();
         }
     }
@@ -937,6 +976,27 @@ function createExplosion(x, y) {
     createParticles(x, y, '💥', 5);
 }
 
+function createBigExplosion(x, y) {
+    // Create a massive explosion effect
+    createParticles(x, y, '💥', 20);
+    createParticles(x, y, '🔥', 30);
+    createParticles(x, y, '✨', 15);
+    
+    // Create expanding shockwave particles
+    for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2;
+        particles.push({
+            x: x,
+            y: y,
+            dx: Math.cos(angle) * 8,
+            dy: Math.sin(angle) * 8,
+            life: 60,
+            emoji: '💫',
+            size: 20
+        });
+    }
+}
+
 function createPowerUpCollectionAnimation(x, y, emoji, type) {
     // Create ring of particles expanding outward
     const particleCount = 12;
@@ -1154,6 +1214,17 @@ function drawBoss() {
     if (!boss || boss.phase === 'defeated') return;
     
     ctx.save();
+    
+    // Add visual effects during death
+    if (boss.phase === 'dying') {
+        // Flashing effect
+        if (boss.deathTimer % 10 < 5) {
+            ctx.globalAlpha = 0.5;
+        }
+        
+        // Red tint
+        ctx.filter = 'hue-rotate(180deg) brightness(1.5)';
+    }
     
     // Draw shield bubble if active
     if (boss.shieldActive) {
