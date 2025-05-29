@@ -8,6 +8,7 @@ let level = 1;
 let score = 0;
 let enemySpawnTimer = 0;
 let powerUpSpawnTimer = 0;
+let fpvMode = false;
 
 // Starfield
 const stars = [];
@@ -114,11 +115,9 @@ function getGamepadInput() {
 
 // Player movement and shooting
 function updatePlayer() {
-    if (gamePaused || !gameRunning) return;
-    
     const gamepadInput = getGamepadInput();
     
-    // Handle pause input from controller
+    // Handle pause input from controller (should work even when paused)
     if (gamepadInput && gamepadInput.buttons.start) {
         // Prevent rapid toggling with a simple cooldown check
         if (!updatePlayer.pauseCooldown) {
@@ -130,6 +129,8 @@ function updatePlayer() {
     if (updatePlayer.pauseCooldown > 0) {
         updatePlayer.pauseCooldown--;
     }
+    
+    if (gamePaused || !gameRunning) return;
     
     // Movement - keyboard input
     let moveX = 0, moveY = 0;
@@ -163,14 +164,21 @@ function updatePlayer() {
         moveY = (moveY / magnitude) * player.speed;
         
         // Apply movement with boundary checks
-        const newX = player.x + moveX;
-        const newY = player.y + moveY;
-        
-        if (newX >= player.size / 2 && newX <= canvas.width / 2) {
-            player.x = newX;
-        }
-        if (newY >= player.size / 2 && newY <= canvas.height - player.size / 2) {
-            player.y = newY;
+        if (fpvMode) {
+            // In FPV mode, player stays centered, movement affects aim/perspective
+            // Keep player position fixed at center for collision detection
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+        } else {
+            const newX = player.x + moveX;
+            const newY = player.y + moveY;
+            
+            if (newX >= player.size / 2 && newX <= canvas.width / 2) {
+                player.x = newX;
+            }
+            if (newY >= player.size / 2 && newY <= canvas.height - player.size / 2) {
+                player.y = newY;
+            }
         }
     }
     
@@ -192,9 +200,15 @@ function updatePlayer() {
     
     // Update player bullets
     player.bullets = player.bullets.filter(bullet => {
-        bullet.x += bullet.dx;
-        bullet.y += bullet.dy;
-        return bullet.x < canvas.width + 10;
+        if (fpvMode && bullet.depth !== undefined) {
+            bullet.depth += bullet.dz;
+            // Keep bullets centered but moving forward in depth
+            return bullet.depth < 1000;
+        } else {
+            bullet.x += bullet.dx;
+            bullet.y += bullet.dy;
+            return bullet.x < canvas.width + 10;
+        }
     });
 }
 
@@ -209,14 +223,29 @@ function shootPlayerBullet() {
     
     for (let i = 0; i < bulletCount; i++) {
         const angle = (i - (bulletCount - 1) / 2) * spreadAngle;
-        player.bullets.push({
-            x: player.x + player.size / 2,
-            y: player.y,
-            dx: 4,
-            dy: angle * 1.5,
-            size: 5,
-            damage: 10 + player.power * 5
-        });
+        
+        if (fpvMode) {
+            // In FPV mode, bullets go straight forward (toward enemies)
+            player.bullets.push({
+                x: player.x,
+                y: player.y,
+                dx: 0,
+                dy: -8, // Forward in FPV
+                dz: 4, // Depth component for FPV
+                size: 5,
+                damage: 10 + player.power * 5,
+                depth: 10 // Start close to player
+            });
+        } else {
+            player.bullets.push({
+                x: player.x + player.size / 2,
+                y: player.y,
+                dx: 4,
+                dy: angle * 1.5,
+                size: 5,
+                damage: 10 + player.power * 5
+            });
+        }
     }
 }
 
@@ -243,7 +272,11 @@ function spawnEnemy() {
         isRusher: isRusher,
         movementPhase: 'entering', // 'entering', 'hovering', 'rushing'
         hoverTime: 0,
-        emoji: getEnemyEmoji(type)
+        emoji: getEnemyEmoji(type),
+        // FPV mode properties
+        depth: fpvMode ? Math.random() * 800 + 200 : 1, // Distance from player in FPV mode
+        originalX: 0,
+        originalY: 0
     };
     
     enemies.push(enemy);
@@ -264,8 +297,28 @@ function updateEnemies() {
     if (gamePaused || !gameRunning) return;
     
     enemies = enemies.filter(enemy => {
-        // Movement based on phase
-        if (enemy.movementPhase === 'entering') {
+        // FPV mode movement
+        if (fpvMode) {
+            enemy.depth -= enemy.speed * 3; // Move towards player
+            
+            // Set position in FPV space
+            if (enemy.originalX === 0 && enemy.originalY === 0) {
+                enemy.originalX = (Math.random() - 0.5) * 400; // Random X offset
+                enemy.originalY = (Math.random() - 0.5) * 300; // Random Y offset
+            }
+            
+            const perspective = 1000 / (enemy.depth + 1);
+            enemy.x = canvas.width / 2 + enemy.originalX * perspective;
+            enemy.y = canvas.height / 2 + enemy.originalY * perspective;
+            enemy.size = 30 * perspective;
+            
+            // Remove enemy if too close or off screen
+            if (enemy.depth <= 10 || enemy.x < -100 || enemy.x > canvas.width + 100) {
+                return false;
+            }
+        }
+        // Standard side-scrolling movement
+        else if (enemy.movementPhase === 'entering') {
             // Move towards target position
             const dx = enemy.targetX - enemy.x;
             const dy = enemy.targetY - enemy.y;
@@ -446,7 +499,17 @@ function checkCollisions() {
     // Player bullets vs enemies
     player.bullets.forEach((bullet, bIndex) => {
         enemies.forEach(enemy => {
-            if (distance(bullet.x, bullet.y, enemy.x, enemy.y) < enemy.size / 2 + bullet.size) {
+            let collision = false;
+            
+            if (fpvMode && bullet.depth !== undefined && enemy.depth !== undefined) {
+                // FPV collision detection based on depth
+                collision = Math.abs(bullet.depth - enemy.depth) < 20;
+            } else {
+                // Standard 2D collision detection
+                collision = distance(bullet.x, bullet.y, enemy.x, enemy.y) < enemy.size / 2 + bullet.size;
+            }
+            
+            if (collision) {
                 enemy.health -= bullet.damage;
                 player.bullets.splice(bIndex, 1);
                 createParticles(bullet.x, bullet.y, '💥', 5);
@@ -591,6 +654,7 @@ function draw() {
     drawEnemies();
     drawPowerUps();
     drawParticles();
+    drawCrosshairs();
     
     // Draw pause screen
     if (gamePaused) {
@@ -641,6 +705,9 @@ function drawStars() {
 }
 
 function drawPlayer() {
+    // Don't draw player in FPV mode
+    if (fpvMode) return;
+    
     ctx.save();
     ctx.font = `${player.size}px Arial`;
     ctx.textAlign = 'center';
@@ -688,6 +755,10 @@ function drawBullets() {
     // Player bullets
     ctx.fillStyle = '#0ff';
     player.bullets.forEach(bullet => {
+        if (fpvMode && bullet.depth !== undefined) {
+            // In FPV mode, don't draw player bullets (they're "invisible" going forward)
+            return;
+        }
         ctx.beginPath();
         ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
         ctx.fill();
@@ -748,6 +819,39 @@ function drawParticles() {
         ctx.fillText(particle.emoji, particle.x, particle.y);
         ctx.restore();
     });
+}
+
+function drawCrosshairs() {
+    if (!fpvMode) return;
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const size = 20;
+    
+    ctx.save();
+    ctx.strokeStyle = '#00ff00';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.8;
+    
+    // Horizontal line
+    ctx.beginPath();
+    ctx.moveTo(centerX - size, centerY);
+    ctx.lineTo(centerX + size, centerY);
+    ctx.stroke();
+    
+    // Vertical line
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY - size);
+    ctx.lineTo(centerX, centerY + size);
+    ctx.stroke();
+    
+    // Center dot
+    ctx.fillStyle = '#00ff00';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
 }
 
 // Game management
@@ -883,6 +987,25 @@ volumeSlider.addEventListener('input', (e) => {
         window.audioManager.setVolume(volume);
     }
     volumeValue.textContent = `${e.target.value}%`;
+});
+
+// FPV toggle functionality
+const fpvToggle = document.getElementById('fpv-toggle');
+
+fpvToggle.addEventListener('click', () => {
+    fpvMode = !fpvMode;
+    fpvToggle.textContent = fpvMode ? 'Switch to Side View' : 'Switch to FPV Mode';
+    
+    // Reset player position when switching modes
+    if (!fpvMode) {
+        player.x = 100;
+        player.y = canvas.height / 2;
+    }
+    
+    // Clear existing enemies when switching modes to avoid positioning issues
+    enemies = [];
+    enemyBullets = [];
+    powerUps = [];
 });
 
 // Start game
