@@ -1032,6 +1032,45 @@ devToggle.addEventListener('click', () => {
     devToggle.textContent = devPanelVisible ? 'Hide Developer Panel' : 'Show Developer Panel';
 });
 
+// Make developer panel draggable
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+
+devPanel.addEventListener('mousedown', (e) => {
+    // Don't drag if clicking on sliders or inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') {
+        return;
+    }
+    
+    isDragging = true;
+    dragOffset.x = e.clientX - devPanel.offsetLeft;
+    dragOffset.y = e.clientY - devPanel.offsetTop;
+    devPanel.style.cursor = 'grabbing';
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+        e.preventDefault();
+        const newX = e.clientX - dragOffset.x;
+        const newY = e.clientY - dragOffset.y;
+        
+        // Keep panel within viewport bounds
+        const maxX = window.innerWidth - devPanel.offsetWidth;
+        const maxY = window.innerHeight - devPanel.offsetHeight;
+        
+        devPanel.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+        devPanel.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+        devPanel.style.right = 'auto'; // Override right positioning
+    }
+});
+
+document.addEventListener('mouseup', () => {
+    if (isDragging) {
+        isDragging = false;
+        devPanel.style.cursor = 'move';
+    }
+});
+
 // Helper function to set up slider
 function setupSlider(id, property, callback) {
     const slider = document.getElementById(id);

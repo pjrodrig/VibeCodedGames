@@ -149,13 +149,18 @@ h1 {
 
 .developer-panel {
     display: none;
+    position: fixed;
+    top: 50px;
+    right: 20px;
     background: rgba(0, 0, 0, 0.95);
     border: 2px solid #ff6600;
     border-radius: 10px;
     padding: 20px;
-    margin-top: 15px;
-    max-width: 900px;
+    max-width: 400px;
     color: #fff;
+    z-index: 1000;
+    cursor: move;
+    box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
 }
 
 .developer-panel h3 {
@@ -166,9 +171,9 @@ h1 {
 }
 
 .dev-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .dev-section {
