@@ -10,6 +10,9 @@ let enemySpawnTimer = 0;
 let powerUpSpawnTimer = 0;
 let fpvMode = false;
 let invincible = false;
+let enemiesKilled = 0;
+let levelKillRequirement = 10; // Enemies to kill per level
+let levelTimer = 0; // Frames since level started
 
 // Developer settings with localStorage support
 const defaultSettings = {
@@ -560,6 +563,7 @@ function checkCollisions() {
                 // Create explosion if enemy dies
                 if (enemy.health <= 0) {
                     score += 100 * level;
+                    enemiesKilled++;
                     // Use enemy position for explosion
                     createExplosion(enemy.x, enemy.y);
                     if (window.audioManager) {
@@ -629,6 +633,7 @@ function checkCollisions() {
         if (distance(enemy.x, enemy.y, player.x, player.y) < player.size / 2 + enemy.size / 2) {
             // Create explosion at enemy position before marking as dead
             createExplosion(enemy.x, enemy.y);
+            enemiesKilled++;
             
             if (!invincible) {
                 player.health -= 20;
@@ -919,17 +924,28 @@ function updateUI() {
     document.getElementById('health').textContent = Math.max(0, player.health);
     document.getElementById('shield').textContent = Math.max(0, player.shield);
     document.getElementById('power').textContent = player.power;
+    document.getElementById('kills').textContent = enemiesKilled;
+    document.getElementById('killsRequired').textContent = levelKillRequirement;
 }
 
 function levelUp() {
     level++;
-    player.health = Math.min(player.health + 20, player.maxHealth);
+    enemiesKilled = 0; // Reset kill count for new level
+    levelTimer = 0; // Reset level timer
+    
+    // Increase kill requirement for next level (scales up)
+    levelKillRequirement = 10 + (level - 1) * 5; // 10, 15, 20, 25, etc.
+    
+    // Don't restore player health - they need to survive with what they have
     updateUI();
     // Create star particles at player position, not center of screen
     createParticles(player.x, player.y, '⭐', 20);
     if (window.audioManager) {
         window.audioManager.playPowerUp();
     }
+    
+    // Show level up message
+    console.log(`Level ${level}! Kill ${levelKillRequirement} enemies to advance.`);
 }
 
 function gameOver() {
@@ -947,6 +963,9 @@ function restartGame() {
     gamePaused = false;
     level = 1;
     score = 0;
+    enemiesKilled = 0;
+    levelKillRequirement = 10;
+    levelTimer = 0;
     
     // Reset player
     player.x = 100;
@@ -1012,9 +1031,16 @@ function gameLoop() {
     // Spawn enemies
     if (gameRunning && !gamePaused) {
         enemySpawnTimer++;
-        const maxEnemies = Math.min(3 + level, 10); // Start with 4 enemies, max 10
         
-        if (enemySpawnTimer > Math.max(devSettings.enemySpawnRate - level * 15, 90) && enemies.length < maxEnemies) {
+        // Increase max enemies more aggressively with levels
+        const baseEnemies = 3;
+        const maxEnemies = Math.min(baseEnemies + level * 2, 15); // 5, 7, 9, 11... max 15
+        
+        // Decrease spawn rate more aggressively with levels
+        const baseSpawnRate = devSettings.enemySpawnRate;
+        const spawnRate = Math.max(baseSpawnRate - level * 20, 60); // Faster spawning at higher levels
+        
+        if (enemySpawnTimer > spawnRate && enemies.length < maxEnemies) {
             spawnEnemy();
             enemySpawnTimer = 0;
         }
@@ -1026,8 +1052,17 @@ function gameLoop() {
             powerUpSpawnTimer = 0;
         }
         
-        // Level progression
-        if (score > level * 1000) {
+        // Level progression based on kills
+        levelTimer++;
+        
+        // Check if player has killed enough enemies
+        if (enemiesKilled >= levelKillRequirement) {
+            levelUp();
+        }
+        
+        // Optional: Add time-based level up as fallback (e.g., after 2 minutes)
+        const maxLevelTime = 60 * 120; // 120 seconds at 60 fps
+        if (levelTimer >= maxLevelTime) {
             levelUp();
         }
     }
