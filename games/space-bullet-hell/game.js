@@ -422,8 +422,10 @@ function spawnAsteroid(isHardMode) {
 function updateAsteroids() {
     if (!asteroidFieldActive) return;
     
-    // Update timer
-    asteroidFieldTimer++;
+    // Update timer only if we haven't reached the duration
+    if (asteroidFieldTimer < asteroidFieldDuration) {
+        asteroidFieldTimer++;
+    }
     
     // Check if field is complete
     if (asteroidFieldTimer >= asteroidFieldDuration) {
@@ -434,18 +436,19 @@ function updateAsteroids() {
             console.log('Asteroid field survived!');
             return;
         }
-    }
-    
-    // Spawn asteroids
-    const isHardMode = level === 7;
-    const spawnRate = isHardMode ? 20 : 30; // Spawn every 20 or 30 frames
-    
-    if (asteroidFieldTimer % spawnRate === 0) {
-        spawnAsteroid(isHardMode);
+        // Don't spawn new asteroids after duration is reached
+    } else {
+        // Spawn asteroids only during the active duration
+        const isHardMode = level === 7;
+        const spawnRate = isHardMode ? 20 : 30; // Spawn every 20 or 30 frames
         
-        // Chance for double spawn in hard mode
-        if (isHardMode && Math.random() < 0.3) {
+        if (asteroidFieldTimer % spawnRate === 0) {
             spawnAsteroid(isHardMode);
+            
+            // Chance for double spawn in hard mode
+            if (isHardMode && Math.random() < 0.3) {
+                spawnAsteroid(isHardMode);
+            }
         }
     }
     
@@ -1602,8 +1605,15 @@ function drawAsteroids() {
         ctx.fillStyle = '#fff';
         ctx.font = '16px Arial';
         ctx.textAlign = 'center';
-        const timeLeft = Math.ceil((asteroidFieldDuration - asteroidFieldTimer) / 60);
-        ctx.fillText(`ASTEROID FIELD - ${timeLeft}s remaining`, canvas.width / 2, barY - 10);
+        
+        if (asteroidFieldTimer >= asteroidFieldDuration) {
+            // Show clearing message when done but waiting for asteroids to leave
+            ctx.fillText(`ASTEROID FIELD - Clearing remaining asteroids (${asteroids.length})`, canvas.width / 2, barY - 10);
+        } else {
+            // Show normal countdown
+            const timeLeft = Math.ceil((asteroidFieldDuration - asteroidFieldTimer) / 60);
+            ctx.fillText(`ASTEROID FIELD - ${timeLeft}s remaining`, canvas.width / 2, barY - 10);
+        }
     }
 }
 
