@@ -45,6 +45,71 @@
             <div class="view-control">
                 <button id="fpv-toggle">Switch to FPV Mode</button>
             </div>
+            <div class="dev-control">
+                <button id="dev-toggle">Show Developer Panel</button>
+            </div>
+        </div>
+        
+        <div class="developer-panel" id="developer-panel">
+            <h3>🛠️ Developer Panel</h3>
+            <div class="dev-grid">
+                <div class="dev-section">
+                    <h4>Player Settings</h4>
+                    <div class="slider-group">
+                        <label for="player-speed">Player Speed:</label>
+                        <input type="range" id="player-speed" min="1" max="10" value="3" step="0.5">
+                        <span id="player-speed-value">3</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="player-health">Max Health:</label>
+                        <input type="range" id="player-health" min="50" max="200" value="100" step="10">
+                        <span id="player-health-value">100</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="shoot-cooldown">Shoot Cooldown:</label>
+                        <input type="range" id="shoot-cooldown" min="1" max="20" value="10" step="1">
+                        <span id="shoot-cooldown-value">10</span>
+                    </div>
+                </div>
+                
+                <div class="dev-section">
+                    <h4>Enemy Settings</h4>
+                    <div class="slider-group">
+                        <label for="enemy-speed">Enemy Speed:</label>
+                        <input type="range" id="enemy-speed" min="0.5" max="5" value="1.5" step="0.1">
+                        <span id="enemy-speed-value">1.5</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="enemy-spawn-rate">Spawn Rate:</label>
+                        <input type="range" id="enemy-spawn-rate" min="30" max="300" value="180" step="15">
+                        <span id="enemy-spawn-rate-value">180</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="enemy-health">Enemy Health:</label>
+                        <input type="range" id="enemy-health" min="25" max="150" value="50" step="5">
+                        <span id="enemy-health-value">50</span>
+                    </div>
+                </div>
+                
+                <div class="dev-section">
+                    <h4>Visual Settings</h4>
+                    <div class="slider-group">
+                        <label for="star-count">Star Count:</label>
+                        <input type="range" id="star-count" min="20" max="150" value="60" step="10">
+                        <span id="star-count-value">60</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="star-speed">Star Speed:</label>
+                        <input type="range" id="star-speed" min="0.1" max="2" value="0.5" step="0.1">
+                        <span id="star-speed-value">0.5</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="game-speed">Game Speed:</label>
+                        <input type="range" id="game-speed" min="0.5" max="3" value="1" step="0.1">
+                        <span id="game-speed-value">1</span>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="game-over" id="gameOver">
             <h2>Game Over</h2>

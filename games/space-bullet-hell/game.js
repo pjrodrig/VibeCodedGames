@@ -10,6 +10,19 @@ let enemySpawnTimer = 0;
 let powerUpSpawnTimer = 0;
 let fpvMode = false;
 
+// Developer settings
+let devSettings = {
+    playerSpeed: 3,
+    playerMaxHealth: 100,
+    shootCooldown: 10,
+    enemySpeed: 1.5,
+    enemySpawnRate: 180,
+    enemyBaseHealth: 50,
+    starCount: 60,
+    starSpeed: 0.5,
+    gameSpeed: 1
+};
+
 // Starfield
 const stars = [];
 const NUM_STARS = 60;
@@ -29,9 +42,9 @@ const player = {
     x: 100,
     y: canvas.height / 2,
     size: 30,
-    speed: 3,
-    health: 100,
-    maxHealth: 100,
+    speed: devSettings.playerSpeed,
+    health: devSettings.playerMaxHealth,
+    maxHealth: devSettings.playerMaxHealth,
     shield: 0,
     power: 1,
     emoji: '🚀',
@@ -160,8 +173,8 @@ function updatePlayer() {
     // Normalize diagonal movement and apply movement
     if (moveX !== 0 || moveY !== 0) {
         const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
-        moveX = (moveX / magnitude) * player.speed;
-        moveY = (moveY / magnitude) * player.speed;
+        moveX = (moveX / magnitude) * devSettings.playerSpeed * devSettings.gameSpeed;
+        moveY = (moveY / magnitude) * devSettings.playerSpeed * devSettings.gameSpeed;
         
         // Apply movement with boundary checks
         if (fpvMode) {
@@ -191,7 +204,7 @@ function updatePlayer() {
     
     if (shouldShoot && player.shootCooldown <= 0) {
         shootPlayerBullet();
-        player.shootCooldown = 10 - Math.min(player.power, 5);
+        player.shootCooldown = devSettings.shootCooldown - Math.min(player.power, 5);
     }
     
     if (player.shootCooldown > 0) {
@@ -264,9 +277,9 @@ function spawnEnemy() {
         targetY: Math.random() * (canvas.height - 100) + 50,
         type: type,
         size: 30,
-        health: 50 + level * 10,
-        maxHealth: 50 + level * 10,
-        speed: isRusher ? 2 + Math.random() * 1 : 1.5,
+        health: devSettings.enemyBaseHealth + level * 10,
+        maxHealth: devSettings.enemyBaseHealth + level * 10,
+        speed: isRusher ? devSettings.enemySpeed + Math.random() * 1 : devSettings.enemySpeed,
         shootTimer: Math.random() * 60, // Randomize initial shoot timer
         angle: 0,
         isRusher: isRusher,
@@ -684,7 +697,7 @@ function drawStars() {
     stars.forEach(star => {
         // Move stars based on their depth (parallax effect)
         if (!gamePaused) {
-            star.x -= star.z * 0.5;
+            star.x -= star.z * devSettings.starSpeed;
             
             // Wrap around when star goes off screen
             if (star.x < 0) {
@@ -955,7 +968,7 @@ function gameLoop() {
         enemySpawnTimer++;
         const maxEnemies = Math.min(3 + level, 10); // Start with 4 enemies, max 10
         
-        if (enemySpawnTimer > Math.max(180 - level * 15, 90) && enemies.length < maxEnemies) {
+        if (enemySpawnTimer > Math.max(devSettings.enemySpawnRate - level * 15, 90) && enemies.length < maxEnemies) {
             spawnEnemy();
             enemySpawnTimer = 0;
         }
@@ -1007,6 +1020,67 @@ fpvToggle.addEventListener('click', () => {
     enemyBullets = [];
     powerUps = [];
 });
+
+// Developer panel functionality
+const devToggle = document.getElementById('dev-toggle');
+const devPanel = document.getElementById('developer-panel');
+let devPanelVisible = false;
+
+devToggle.addEventListener('click', () => {
+    devPanelVisible = !devPanelVisible;
+    devPanel.style.display = devPanelVisible ? 'block' : 'none';
+    devToggle.textContent = devPanelVisible ? 'Hide Developer Panel' : 'Show Developer Panel';
+});
+
+// Helper function to set up slider
+function setupSlider(id, property, callback) {
+    const slider = document.getElementById(id);
+    const valueSpan = document.getElementById(id + '-value');
+    
+    slider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        devSettings[property] = value;
+        valueSpan.textContent = value;
+        if (callback) callback(value);
+    });
+}
+
+// Set up all sliders
+setupSlider('player-speed', 'playerSpeed', (value) => {
+    player.speed = value;
+});
+
+setupSlider('player-health', 'playerMaxHealth', (value) => {
+    player.maxHealth = value;
+    if (player.health > value) player.health = value;
+});
+
+setupSlider('shoot-cooldown', 'shootCooldown');
+
+setupSlider('enemy-speed', 'enemySpeed');
+
+setupSlider('enemy-spawn-rate', 'enemySpawnRate');
+
+setupSlider('enemy-health', 'enemyBaseHealth');
+
+setupSlider('star-count', 'starCount', (value) => {
+    // Adjust star count
+    while (stars.length < value) {
+        stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            z: Math.random() * 3 + 1,
+            size: Math.random() * 0.7 + 0.3
+        });
+    }
+    while (stars.length > value) {
+        stars.pop();
+    }
+});
+
+setupSlider('star-speed', 'starSpeed');
+
+setupSlider('game-speed', 'gameSpeed');
 
 // Start game
 updateUI();
