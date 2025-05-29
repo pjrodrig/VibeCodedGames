@@ -1564,6 +1564,7 @@ invincibilityToggle.addEventListener('change', (e) => {
 // Developer panel control buttons
 const saveDefaultsBtn = document.getElementById('save-defaults-btn');
 const resetDefaultsBtn = document.getElementById('reset-defaults-btn');
+const advanceLevelBtn = document.getElementById('advance-level-btn');
 
 saveDefaultsBtn.addEventListener('click', () => {
     // Display current values for easy copying
@@ -1627,6 +1628,12 @@ resetDefaultsBtn.addEventListener('click', () => {
     
     saveSettings();
     alert('Settings reset to defaults!');
+});
+
+advanceLevelBtn.addEventListener('click', () => {
+    // Force complete the current level
+    enemiesKilled = levelKillRequirement;
+    console.log(`Developer: Advanced to level ${level + 1}`);
 });
 
 // Start game
