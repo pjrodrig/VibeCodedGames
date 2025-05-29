@@ -107,25 +107,6 @@ h1 {
     margin-top: 15px;
 }
 
-#fpv-toggle {
-    background: #333;
-    color: #00ff00;
-    border: 2px solid #00ff00;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s;
-}
-
-#fpv-toggle:hover {
-    background: #00ff00;
-    color: #000;
-}
-
-#fpv-toggle:active {
-    transform: scale(0.95);
-}
 
 .dev-control {
     margin-top: 10px;

@@ -8,7 +8,6 @@ let level = 1;
 let score = 0;
 let enemySpawnTimer = 0;
 let powerUpSpawnTimer = 0;
-let fpvMode = false;
 let invincible = false;
 let enemiesKilled = 0;
 let levelKillRequirement = 10; // Enemies to kill per level
@@ -214,21 +213,14 @@ function updatePlayer() {
         moveY = (moveY / magnitude) * devSettings.playerSpeed * devSettings.gameSpeed;
         
         // Apply movement with boundary checks
-        if (fpvMode) {
-            // In FPV mode, player stays centered, movement affects aim/perspective
-            // Keep player position fixed at center for collision detection
-            player.x = canvas.width / 2;
-            player.y = canvas.height / 2;
-        } else {
-            const newX = player.x + moveX;
-            const newY = player.y + moveY;
-            
-            if (newX >= player.size / 2 && newX <= canvas.width / 2) {
-                player.x = newX;
-            }
-            if (newY >= player.size / 2 && newY <= canvas.height - player.size / 2) {
-                player.y = newY;
-            }
+        const newX = player.x + moveX;
+        const newY = player.y + moveY;
+        
+        if (newX >= player.size / 2 && newX <= canvas.width / 2) {
+            player.x = newX;
+        }
+        if (newY >= player.size / 2 && newY <= canvas.height - player.size / 2) {
+            player.y = newY;
         }
     }
     
@@ -250,15 +242,9 @@ function updatePlayer() {
     
     // Update player bullets
     player.bullets = player.bullets.filter(bullet => {
-        if (fpvMode && bullet.depth !== undefined) {
-            bullet.depth += bullet.dz;
-            // Keep bullets centered but moving forward in depth
-            return bullet.depth < 1000;
-        } else {
-            bullet.x += bullet.dx;
-            bullet.y += bullet.dy;
-            return bullet.x < canvas.width + 10;
-        }
+        bullet.x += bullet.dx;
+        bullet.y += bullet.dy;
+        return bullet.x < canvas.width + 10;
     });
 }
 
@@ -274,28 +260,14 @@ function shootPlayerBullet() {
     for (let i = 0; i < bulletCount; i++) {
         const angle = (i - (bulletCount - 1) / 2) * spreadAngle;
         
-        if (fpvMode) {
-            // In FPV mode, bullets go straight forward (toward enemies)
-            player.bullets.push({
-                x: player.x,
-                y: player.y,
-                dx: 0,
-                dy: -8, // Forward in FPV
-                dz: 4, // Depth component for FPV
-                size: 5,
-                damage: Math.round((5 + player.power * 3) * devSettings.playerDamageMultiplier), // Reduced base damage
-                depth: 10 // Start close to player
-            });
-        } else {
-            player.bullets.push({
-                x: player.x + player.size / 2,
-                y: player.y,
-                dx: 4,
-                dy: angle * 1.5,
-                size: 5,
-                damage: Math.round((5 + player.power * 3) * devSettings.playerDamageMultiplier) // Reduced base damage
-            });
-        }
+        player.bullets.push({
+            x: player.x + player.size / 2,
+            y: player.y,
+            dx: 4,
+            dy: angle * 1.5,
+            size: 5,
+            damage: Math.round((5 + player.power * 3) * devSettings.playerDamageMultiplier) // Reduced base damage
+        });
     }
 }
 
@@ -322,11 +294,7 @@ function spawnEnemy() {
         isRusher: isRusher,
         movementPhase: 'entering', // 'entering', 'hovering', 'rushing'
         hoverTime: 0,
-        emoji: getEnemyEmoji(type),
-        // FPV mode properties
-        depth: fpvMode ? Math.random() * 800 + 200 : 1, // Distance from player in FPV mode
-        originalX: 0,
-        originalY: 0
+        emoji: getEnemyEmoji(type)
     };
     
     enemies.push(enemy);
@@ -546,17 +514,47 @@ function updateFinalBoss() {
                 shootFinalBossBullet('machinegun');
             }
             break;
-        case 1: // Laser beam warning then fire
-            if (boss.shootTimer % 180 === 0) {
+        case 1: // Laser beam triple shot with repositioning
+            if (!boss.laserSequence) {
+                boss.laserSequence = { shot: 0, sequenceTimer: 0 };
+            }
+            
+            boss.laserSequence.sequenceTimer++;
+            
+            // Start a new laser sequence
+            if (boss.laserSequence.shot === 0 && boss.laserSequence.sequenceTimer === 1) {
                 boss.laserCharging = true;
                 boss.laserTimer = 0;
             }
+            
             if (boss.laserCharging) {
                 boss.laserTimer++;
-                if (boss.laserTimer === 120) { // 2 second charge (was 1 second)
+                if (boss.laserTimer === 120) { // 2 second charge
                     shootFinalBossBullet('laser');
                     boss.laserCharging = false;
+                    boss.laserSequence.shot++;
+                    
+                    // Reposition after each shot (except the last one)
+                    if (boss.laserSequence.shot < 3) {
+                        setTimeout(() => {
+                            // Teleport to new position
+                            createParticles(boss.x, boss.y, '✨', 20);
+                            boss.y = Math.random() * (canvas.height - 200) + 100;
+                            createParticles(boss.x, boss.y, '✨', 20);
+                            
+                            // Start charging next laser
+                            setTimeout(() => {
+                                boss.laserCharging = true;
+                                boss.laserTimer = 0;
+                            }, 500);
+                        }, 500);
+                    }
                 }
+            }
+            
+            // Reset sequence after 3 shots
+            if (boss.laserSequence.shot >= 3 && !boss.laserCharging) {
+                boss.laserSequence = null;
             }
             break;
         case 2: // Bullet hell spiral
@@ -600,8 +598,12 @@ function updateBossDeath() {
     // Death animation sequence
     boss.deathTimer++;
     
+    // Longer sequence for final boss
+    const deathDuration = boss.isFinalBoss ? 360 : 180; // 6 seconds for final boss, 3 for regular
+    const completionTime = boss.isFinalBoss ? 480 : 240; // 8 seconds for final boss, 4 for regular
+    
     // Create staggered explosions
-    if (boss.deathTimer % 15 === 0 && boss.deathTimer < 180) { // Every 0.25 seconds for 3 seconds
+    if (boss.deathTimer % 15 === 0 && boss.deathTimer < deathDuration) { // Every 0.25 seconds
         const offsetX = (Math.random() - 0.5) * boss.size;
         const offsetY = (Math.random() - 0.5) * boss.size;
         createExplosion(boss.x + offsetX, boss.y + offsetY);
@@ -616,25 +618,48 @@ function updateBossDeath() {
     }
     
     // Final massive explosion
-    if (boss.deathTimer === 180) { // 3 seconds
-        // Create ring of explosions
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const dist = boss.size / 2;
-            createExplosion(
-                boss.x + Math.cos(angle) * dist,
-                boss.y + Math.sin(angle) * dist
-            );
+    if (boss.deathTimer === deathDuration) {
+        if (boss.isFinalBoss) {
+            // Epic final boss explosion
+            for (let ring = 0; ring < 3; ring++) {
+                setTimeout(() => {
+                    // Create expanding rings of explosions
+                    for (let i = 0; i < 12; i++) {
+                        const angle = (i / 12) * Math.PI * 2;
+                        const dist = boss.size / 2 + ring * 40;
+                        createExplosion(
+                            boss.x + Math.cos(angle) * dist,
+                            boss.y + Math.sin(angle) * dist
+                        );
+                    }
+                    createBigExplosion(boss.x, boss.y);
+                }, ring * 200);
+            }
+        } else {
+            // Regular boss explosion
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const dist = boss.size / 2;
+                createExplosion(
+                    boss.x + Math.cos(angle) * dist,
+                    boss.y + Math.sin(angle) * dist
+                );
+            }
+            createBigExplosion(boss.x, boss.y);
         }
-        
-        // Central big explosion
-        createBigExplosion(boss.x, boss.y);
     }
     
     // Wait before completing level
-    if (boss.deathTimer >= 240) { // 4 seconds total
+    if (boss.deathTimer >= completionTime) {
         boss.phase = 'defeated';
-        enemiesKilled = levelKillRequirement; // Now complete the level
+        
+        if (boss.isFinalBoss) {
+            // Show victory screen instead of continuing
+            gameWon();
+        } else {
+            enemiesKilled = levelKillRequirement; // Complete the level
+        }
+        
         boss = null;
     }
 }
@@ -902,28 +927,8 @@ function updateEnemies() {
     }
     
     enemies = enemies.filter(enemy => {
-        // FPV mode movement
-        if (fpvMode) {
-            enemy.depth -= enemy.speed * 3; // Move towards player
-            
-            // Set position in FPV space
-            if (enemy.originalX === 0 && enemy.originalY === 0) {
-                enemy.originalX = (Math.random() - 0.5) * 400; // Random X offset
-                enemy.originalY = (Math.random() - 0.5) * 300; // Random Y offset
-            }
-            
-            const perspective = 1000 / (enemy.depth + 1);
-            enemy.x = canvas.width / 2 + enemy.originalX * perspective;
-            enemy.y = canvas.height / 2 + enemy.originalY * perspective;
-            enemy.size = 30 * perspective;
-            
-            // Remove enemy if too close or off screen
-            if (enemy.depth <= 10 || enemy.x < -100 || enemy.x > canvas.width + 100) {
-                return false;
-            }
-        }
         // Standard side-scrolling movement
-        else if (enemy.movementPhase === 'entering') {
+        if (enemy.movementPhase === 'entering') {
             // Move towards target position
             const dx = enemy.targetX - enemy.x;
             const dy = enemy.targetY - enemy.y;
@@ -1110,13 +1115,8 @@ function checkCollisions() {
             
             let collision = false;
             
-            if (fpvMode && bullet.depth !== undefined && enemy.depth !== undefined) {
-                // FPV collision detection based on depth
-                collision = Math.abs(bullet.depth - enemy.depth) < 20;
-            } else {
-                // Standard 2D collision detection
-                collision = distance(bullet.x, bullet.y, enemy.x, enemy.y) < enemy.size / 2 + bullet.size;
-            }
+            // Standard 2D collision detection
+            collision = distance(bullet.x, bullet.y, enemy.x, enemy.y) < enemy.size / 2 + bullet.size;
             
             if (collision && !bulletsToRemove.includes(bIndex)) {
                 enemy.health -= bullet.damage;
@@ -1439,7 +1439,6 @@ function draw() {
     drawAsteroids();
     drawPowerUps();
     drawParticles();
-    drawCrosshairs();
     
     // Draw pause screen
     if (gamePaused) {
@@ -1490,9 +1489,6 @@ function drawStars() {
 }
 
 function drawPlayer() {
-    // Don't draw player in FPV mode
-    if (fpvMode) return;
-    
     ctx.save();
     ctx.font = `${player.size}px Arial`;
     ctx.textAlign = 'center';
@@ -1544,10 +1540,6 @@ function drawBullets() {
     // Player bullets
     ctx.fillStyle = '#0ff';
     player.bullets.forEach(bullet => {
-        if (fpvMode && bullet.depth !== undefined) {
-            // In FPV mode, don't draw player bullets (they're "invisible" going forward)
-            return;
-        }
         ctx.beginPath();
         ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
         ctx.fill();
@@ -1771,38 +1763,6 @@ function drawParticles() {
     });
 }
 
-function drawCrosshairs() {
-    if (!fpvMode) return;
-    
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const size = 20;
-    
-    ctx.save();
-    ctx.strokeStyle = '#00ff00';
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.8;
-    
-    // Horizontal line
-    ctx.beginPath();
-    ctx.moveTo(centerX - size, centerY);
-    ctx.lineTo(centerX + size, centerY);
-    ctx.stroke();
-    
-    // Vertical line
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY - size);
-    ctx.lineTo(centerX, centerY + size);
-    ctx.stroke();
-    
-    // Center dot
-    ctx.fillStyle = '#00ff00';
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.restore();
-}
 
 // Game management
 function updateUI() {
@@ -1864,6 +1824,49 @@ function gameOver() {
     document.getElementById('gameOver').style.display = 'block';
     if (window.audioManager) {
         window.audioManager.playGameOver();
+    }
+}
+
+function gameWon() {
+    gameRunning = false;
+    
+    // Create or update victory screen
+    let victoryScreen = document.getElementById('victoryScreen');
+    if (!victoryScreen) {
+        victoryScreen = document.createElement('div');
+        victoryScreen.id = 'victoryScreen';
+        victoryScreen.className = 'game-over';
+        victoryScreen.innerHTML = `
+            <h2>🎉 CONGRATULATIONS! 🎉</h2>
+            <p>You have defeated the final boss!</p>
+            <p>You are a true space hero!</p>
+            <p>Final Score: <span id="victoryScore">0</span></p>
+            <p>Levels Completed: 10</p>
+            <button onclick="restartGame()">Play Again</button>
+        `;
+        document.querySelector('.game-container').appendChild(victoryScreen);
+    }
+    
+    document.getElementById('victoryScore').textContent = score;
+    victoryScreen.style.display = 'block';
+    
+    // Create celebration particles
+    for (let i = 0; i < 50; i++) {
+        setTimeout(() => {
+            const x = Math.random() * canvas.width;
+            const y = canvas.height;
+            for (let j = 0; j < 5; j++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    dx: (Math.random() - 0.5) * 8,
+                    dy: -Math.random() * 10 - 5,
+                    life: 120,
+                    emoji: ['🎆', '🎇', '✨', '⭐', '🌟'][Math.floor(Math.random() * 5)],
+                    size: 30
+                });
+            }
+        }, i * 100);
     }
 }
 
@@ -2039,24 +2042,6 @@ volumeSlider.addEventListener('input', (e) => {
     savePlayerSettings(playerSettings);
 });
 
-// FPV toggle functionality
-const fpvToggle = document.getElementById('fpv-toggle');
-
-fpvToggle.addEventListener('click', () => {
-    fpvMode = !fpvMode;
-    fpvToggle.textContent = fpvMode ? 'Switch to Side View' : 'Switch to FPV Mode';
-    
-    // Reset player position when switching modes
-    if (!fpvMode) {
-        player.x = 100;
-        player.y = canvas.height / 2;
-    }
-    
-    // Clear existing enemies when switching modes to avoid positioning issues
-    enemies = [];
-    enemyBullets = [];
-    powerUps = [];
-});
 
 // Developer panel functionality
 const devToggle = document.getElementById('dev-toggle');
