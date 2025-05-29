@@ -88,6 +88,12 @@ let enemies = [];
 let enemyBullets = [];
 let powerUps = [];
 let particles = [];
+let asteroids = [];
+
+// Asteroid field state
+let asteroidFieldActive = false;
+let asteroidFieldTimer = 0;
+let asteroidFieldDuration = 0;
 
 // Input handling
 const keys = {};
@@ -402,6 +408,87 @@ function spawnFinalBoss() {
     enemyBullets = [];
     
     console.log('FINAL BOSS FIGHT! THE ULTIMATE CHALLENGE!');
+}
+
+function startAsteroidField(level) {
+    asteroidFieldActive = true;
+    asteroidFieldTimer = 0;
+    
+    // Clear enemies for asteroid field
+    enemies = [];
+    enemyBullets = [];
+    
+    if (level === 3) {
+        asteroidFieldDuration = 1800; // 30 seconds at 60fps
+        console.log('ASTEROID FIELD! Survive for 30 seconds!');
+    } else if (level === 7) {
+        asteroidFieldDuration = 2700; // 45 seconds at 60fps
+        console.log('INTENSE ASTEROID FIELD! Survive for 45 seconds!');
+    }
+}
+
+function spawnAsteroid(isHardMode) {
+    const size = isHardMode ? 
+        Math.random() * 40 + 30 : // 30-70 for hard mode
+        Math.random() * 30 + 20;   // 20-50 for normal
+    
+    const speed = isHardMode ?
+        Math.random() * 3 + 3 :    // 3-6 for hard mode
+        Math.random() * 2 + 2;     // 2-4 for normal
+    
+    const y = Math.random() * (canvas.height - size) + size / 2;
+    
+    // Some asteroids move diagonally
+    const angleVariation = (Math.random() - 0.5) * 0.5;
+    
+    asteroids.push({
+        x: canvas.width + size,
+        y: y,
+        size: size,
+        speed: speed,
+        angle: angleVariation,
+        rotation: 0,
+        rotationSpeed: (Math.random() - 0.5) * 0.1,
+        emoji: ['🌑', '☄️', '🪨'][Math.floor(Math.random() * 3)]
+    });
+}
+
+function updateAsteroids() {
+    if (!asteroidFieldActive) return;
+    
+    // Update timer
+    asteroidFieldTimer++;
+    
+    // Check if field is complete
+    if (asteroidFieldTimer >= asteroidFieldDuration) {
+        asteroidFieldActive = false;
+        asteroids = [];
+        enemiesKilled = levelKillRequirement; // Complete the level
+        console.log('Asteroid field survived!');
+        return;
+    }
+    
+    // Spawn asteroids
+    const isHardMode = level === 7;
+    const spawnRate = isHardMode ? 20 : 30; // Spawn every 20 or 30 frames
+    
+    if (asteroidFieldTimer % spawnRate === 0) {
+        spawnAsteroid(isHardMode);
+        
+        // Chance for double spawn in hard mode
+        if (isHardMode && Math.random() < 0.3) {
+            spawnAsteroid(isHardMode);
+        }
+    }
+    
+    // Update asteroid positions
+    asteroids = asteroids.filter(asteroid => {
+        asteroid.x -= asteroid.speed;
+        asteroid.y += Math.sin(asteroid.angle) * asteroid.speed * 0.5;
+        asteroid.rotation += asteroid.rotationSpeed;
+        
+        return asteroid.x > -asteroid.size;
+    });
 }
 
 function updateFinalBoss() {
@@ -1175,6 +1262,35 @@ function checkCollisions() {
         }
     });
     
+    // Player vs asteroids
+    asteroids.forEach(asteroid => {
+        if (distance(asteroid.x, asteroid.y, player.x, player.y) < player.size / 2 + asteroid.size / 2) {
+            if (!invincible) {
+                // Damage based on asteroid size
+                const damage = Math.round(asteroid.size / 2);
+                player.health -= damage;
+                createExplosion(player.x, player.y);
+                createParticles(player.x, player.y, '💥', 10);
+                
+                if (window.audioManager) {
+                    window.audioManager.playExplosion();
+                    window.audioManager.playPlayerDamage();
+                }
+                updateUI();
+                
+                if (player.health <= 0) {
+                    gameOver();
+                }
+            }
+            
+            // Destroy the asteroid on impact
+            asteroid.destroyed = true;
+        }
+    });
+    
+    // Remove destroyed asteroids
+    asteroids = asteroids.filter(asteroid => !asteroid.destroyed);
+    
     // Player vs boss
     if (boss && boss.phase === 'fighting') {
         if (distance(boss.x, boss.y, player.x, player.y) < player.size / 2 + boss.size / 2) {
@@ -1320,6 +1436,7 @@ function draw() {
     drawBullets();
     drawEnemies();
     drawBoss();
+    drawAsteroids();
     drawPowerUps();
     drawParticles();
     drawCrosshairs();
@@ -1464,6 +1581,43 @@ function drawEnemies() {
         ctx.fillStyle = healthPercent > 0.5 ? '#0f0' : healthPercent > 0.25 ? '#ff0' : '#f00';
         ctx.fillRect(enemy.x - barWidth / 2, enemy.y - enemy.size / 2 - 10, barWidth * healthPercent, barHeight);
     });
+}
+
+function drawAsteroids() {
+    asteroids.forEach(asteroid => {
+        ctx.save();
+        ctx.translate(asteroid.x, asteroid.y);
+        ctx.rotate(asteroid.rotation);
+        ctx.font = `${asteroid.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(asteroid.emoji, 0, 0);
+        ctx.restore();
+    });
+    
+    // Draw progress indicator during asteroid field
+    if (asteroidFieldActive) {
+        const progress = asteroidFieldTimer / asteroidFieldDuration;
+        const barWidth = 300;
+        const barHeight = 20;
+        const barX = (canvas.width - barWidth) / 2;
+        const barY = 50;
+        
+        // Background
+        ctx.fillStyle = '#333';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Progress bar
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+        
+        // Text
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        const timeLeft = Math.ceil((asteroidFieldDuration - asteroidFieldTimer) / 60);
+        ctx.fillText(`ASTEROID FIELD - ${timeLeft}s remaining`, canvas.width / 2, barY - 10);
+    }
 }
 
 function drawBoss() {
@@ -1648,8 +1802,12 @@ function levelUp() {
     enemiesKilled = 0; // Reset kill count for new level
     levelTimer = 0; // Reset level timer
     
-    // Check if this is a boss level
-    if (level === 5 && !bossDefeated) {
+    // Check if this is a special level
+    if (level === 3 || level === 7) {
+        // Asteroid field levels
+        startAsteroidField(level);
+        levelKillRequirement = 1; // Will be completed by surviving
+    } else if (level === 5 && !bossDefeated) {
         spawnBoss();
         levelKillRequirement = 1; // Just need to defeat the boss
     } else if (level === 10 && !finalBossDefeated) {
@@ -1669,7 +1827,11 @@ function levelUp() {
     }
     
     // Show level up message
-    if (level === 5 && !bossDefeated) {
+    if (level === 3) {
+        console.log(`Level ${level}! ASTEROID FIELD - Survive for 30 seconds!`);
+    } else if (level === 7) {
+        console.log(`Level ${level}! INTENSE ASTEROID FIELD - Survive for 45 seconds!`);
+    } else if (level === 5 && !bossDefeated) {
         console.log(`Level ${level}! BOSS FIGHT!`);
     } else if (level === 10 && !finalBossDefeated) {
         console.log(`Level ${level}! FINAL BOSS - THE ULTIMATE CHALLENGE!`);
@@ -1713,6 +1875,12 @@ function restartGame() {
     enemyBullets = [];
     powerUps = [];
     particles = [];
+    asteroids = [];
+    
+    // Reset asteroid field
+    asteroidFieldActive = false;
+    asteroidFieldTimer = 0;
+    asteroidFieldDuration = 0;
     
     // Reset timers
     enemySpawnTimer = 0;
@@ -1759,10 +1927,11 @@ function gameLoop() {
     updateEnemyBullets();
     updatePowerUps();
     updateParticles();
+    updateAsteroids();
     checkCollisions();
     
     // Spawn enemies
-    if (gameRunning && !gamePaused && !boss) { // Don't spawn enemies during boss fight
+    if (gameRunning && !gamePaused && !boss && !asteroidFieldActive) { // Don't spawn enemies during boss fight or asteroid field
         enemySpawnTimer++;
         
         // Increase max enemies more aggressively with levels
