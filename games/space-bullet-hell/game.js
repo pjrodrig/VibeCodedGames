@@ -342,16 +342,20 @@ function spawnBoss() {
         targetX: canvas.width * 0.75,
         targetY: canvas.height / 2,
         type: 'boss',
-        size: 60, // Much larger than regular enemies
-        health: 500, // Much more health
-        maxHealth: 500,
-        speed: 1,
+        size: 120, // Twice as big as before (was 60)
+        health: 2000, // Much more health (was 500)
+        maxHealth: 2000,
+        speed: 0.5, // Slower movement (was 1)
         shootTimer: 0,
         angle: 0,
         phase: 'entering', // 'entering', 'fighting', 'defeated'
         attackPattern: 0,
         emoji: '👹',
-        isBoss: true
+        isBoss: true,
+        shieldActive: false,
+        shieldTimer: 0,
+        shieldDuration: 180, // 3 seconds at 60fps
+        shieldCooldown: 300 // 5 seconds between shields
     };
     
     // Clear all regular enemies when boss spawns
@@ -381,8 +385,25 @@ function updateBoss() {
         }
     } else if (boss.phase === 'fighting') {
         // Boss movement pattern - slow vertical oscillation
-        boss.angle += 0.02;
+        boss.angle += 0.01; // Slower oscillation to match slower movement
         boss.y = canvas.height / 2 + Math.sin(boss.angle) * 150;
+        
+        // Handle shield mechanics
+        boss.shieldTimer++;
+        
+        // Activate shield periodically
+        if (!boss.shieldActive && boss.shieldTimer >= boss.shieldCooldown) {
+            boss.shieldActive = true;
+            boss.shieldTimer = 0;
+            console.log('Boss shield activated!');
+        }
+        
+        // Deactivate shield after duration
+        if (boss.shieldActive && boss.shieldTimer >= boss.shieldDuration) {
+            boss.shieldActive = false;
+            boss.shieldTimer = 0;
+            console.log('Boss shield deactivated!');
+        }
         
         // Boss shooting patterns
         boss.shootTimer++;
@@ -754,15 +775,33 @@ function checkCollisions() {
     if (boss && boss.phase === 'fighting') {
         player.bullets = player.bullets.filter(bullet => {
             if (distance(bullet.x, bullet.y, boss.x, boss.y) < boss.size / 2 + bullet.size) {
-                boss.health -= bullet.damage;
-                createParticles(bullet.x, bullet.y, '💥', 5);
-                
-                if (window.audioManager) {
-                    window.audioManager.playEnemyHit();
+                if (boss.shieldActive) {
+                    // Reflect the bullet back at the player
+                    const angleToPlayer = Math.atan2(player.y - bullet.y, player.x - bullet.x);
+                    enemyBullets.push({
+                        x: bullet.x,
+                        y: bullet.y,
+                        dx: Math.cos(angleToPlayer) * 4,
+                        dy: Math.sin(angleToPlayer) * 4,
+                        size: bullet.size,
+                        emoji: '🔵' // Blue reflected bullet
+                    });
+                    createParticles(bullet.x, bullet.y, '🛡️', 3);
+                    if (window.audioManager) {
+                        window.audioManager.playEnemyHit();
+                    }
+                } else {
+                    // Normal damage
+                    boss.health -= bullet.damage;
+                    createParticles(bullet.x, bullet.y, '💥', 5);
+                    
+                    if (window.audioManager) {
+                        window.audioManager.playEnemyHit();
+                    }
+                    
+                    updateUI();
                 }
-                
-                updateUI();
-                return false;
+                return false; // Remove bullet either way
             }
             return true;
         });
@@ -1106,6 +1145,26 @@ function drawBoss() {
     
     ctx.save();
     
+    // Draw shield bubble if active
+    if (boss.shieldActive) {
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.01) * 0.2; // Pulsing effect
+        ctx.beginPath();
+        ctx.arc(boss.x, boss.y, boss.size / 2 + 20, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        
+        // Inner shield glow
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        ctx.arc(boss.x, boss.y, boss.size / 2 + 15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+    }
+    
     // Draw boss emoji
     ctx.font = `${boss.size}px Arial`;
     ctx.textAlign = 'center';
@@ -1141,6 +1200,13 @@ function drawBoss() {
     ctx.font = '16px Arial';
     ctx.fillStyle = '#ff0';
     ctx.fillText(patterns[boss.attackPattern], canvas.width / 2, 60);
+    
+    // Shield status indicator
+    if (boss.shieldActive) {
+        ctx.fillStyle = '#00ffff';
+        ctx.font = '18px Arial';
+        ctx.fillText('🛡️ SHIELD ACTIVE - REFLECTING BULLETS! 🛡️', canvas.width / 2, 80);
+    }
     
     ctx.restore();
 }
