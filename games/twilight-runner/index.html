@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilight Forest Runner</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="forest-bg"></div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div class="game-info">
+            <div class="score">Distance: <span id="score">0</span>m</div>
+            <div class="high-score">Best: <span id="highScore">0</span>m</div>
+        </div>
+        <div class="start-screen" id="startScreen">
+            <h1>🌲 Twilight Forest Runner 🌲</h1>
+            <p>Edward must carry Bella safely through the forest!</p>
+            <p>Press SPACE or TAP to jump over obstacles</p>
+            <p>Use ARROW KEYS or A/D to move left and right</p>
+            <button onclick="startGame()">Start Running</button>
+        </div>
+        <div class="game-over" id="gameOver" style="display: none;">
+            <h2>Game Over!</h2>
+            <p>Distance: <span id="finalScore">0</span>m</p>
+            <button onclick="restartGame()">Run Again</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>

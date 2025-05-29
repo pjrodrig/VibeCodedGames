@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Bullet Hell</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>🌌 Space Bullet Hell</h1>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">Level:</span>
+                    <span id="level">1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Health:</span>
+                    <span id="health">100</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Shield:</span>
+                    <span id="shield">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Power:</span>
+                    <span id="power">1</span>
+                </div>
+            </div>
+        </div>
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        <div class="controls">
+            <p>Move: Arrow Keys, WASD, or Left Stick | Shoot: Space, A, X, RT, or RB | Pause: P or START</p>
+            <p>Controller: D-pad also works for movement | A or START to restart when game over</p>
+            <div class="volume-control">
+                <label for="volume-slider">🔊 Volume:</label>
+                <input type="range" id="volume-slider" min="0" max="100" value="50">
+                <span id="volume-value">50%</span>
+            </div>
+        </div>
+        <div class="game-over" id="gameOver">
+            <h2>Game Over</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+    <script src="../../audio-utils.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

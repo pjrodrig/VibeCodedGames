@@ -1,0 +1,41 @@
+{
+  "name": "game-portal",
+  "version": "1.0.0",
+  "description": "Game Portal with Pong and Space Bullet Hell",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server.js",
+    "build-win": "electron-builder --win",
+    "build-mac": "electron-builder --mac",
+    "build-linux": "electron-builder --linux"
+  },
+  "keywords": ["pong", "game", "bullet-hell", "electron"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.gameportal.app",
+    "productName": "Game Portal",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!server.js",
+      "!dist/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

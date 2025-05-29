@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilight Baseball</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>Twilight Baseball</h1>
+            <div class="score-board">
+                <div class="team-score">
+                    <span class="team-name">Vampires</span>
+                    <span class="score" id="vampires-score">0</span>
+                </div>
+                <div class="inning-info">
+                    <div>Inning: <span id="inning">1</span></div>
+                    <div id="inning-half">Top</div>
+                </div>
+                <div class="team-score">
+                    <span class="team-name">Werewolves</span>
+                    <span class="score" id="werewolves-score">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="game-info">
+            <div class="current-player">
+                <h3>At Bat: <span id="current-batter">Edward Cullen</span></h3>
+                <div class="player-stats">
+                    <span>Balls: <span id="balls">0</span></span>
+                    <span>Strikes: <span id="strikes">0</span></span>
+                    <span>Outs: <span id="outs">0</span></span>
+                </div>
+            </div>
+            <div class="bases">
+                <div class="base" id="base-1">1st: <span>Empty</span></div>
+                <div class="base" id="base-2">2nd: <span>Empty</span></div>
+                <div class="base" id="base-3">3rd: <span>Empty</span></div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="pitch-btn">Pitch</button>
+            <button id="swing-btn">Swing</button>
+            <button id="start-btn">Start Game</button>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>

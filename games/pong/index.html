@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>Pong</h1>
+        <div class="score-board">
+            <span id="player1-score">0</span>
+            <span class="divider">:</span>
+            <span id="player2-score">0</span>
+        </div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div class="paddle-controls">
+            <div class="paddle-control">
+                <label for="paddle1-size">Player 1 Paddle Size:</label>
+                <input type="range" id="paddle1-size" min="40" max="400" value="80" step="10">
+                <span id="paddle1-size-value">80</span>
+            </div>
+            <div class="paddle-control">
+                <label for="paddle2-size">Player 2 Paddle Size:</label>
+                <input type="range" id="paddle2-size" min="40" max="400" value="80" step="10">
+                <span id="paddle2-size-value">80</span>
+            </div>
+        </div>
+        <div class="controls">
+            <p>Player 1: W/S keys, Q boost | Player 2: Arrow Up/Down, Shift boost</p>
+        </div>
+    </div>
+    <script src="pong.js"></script>
+</body>
+</html>
