@@ -166,8 +166,40 @@ h1 {
 .developer-panel h3 {
     text-align: center;
     color: #ff6600;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     font-size: 18px;
+}
+
+.dev-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.dev-controls button {
+    background: #333;
+    color: #ff6600;
+    border: 1px solid #ff6600;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.3s;
+}
+
+.dev-controls button:hover {
+    background: #ff6600;
+    color: #000;
+}
+
+#save-defaults-btn {
+    color: #00ff00;
+    border-color: #00ff00;
+}
+
+#save-defaults-btn:hover {
+    background: #00ff00;
 }
 
 .dev-grid {

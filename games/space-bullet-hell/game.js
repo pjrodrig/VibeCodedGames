@@ -1180,6 +1180,74 @@ setupSlider('star-speed', 'starSpeed');
 
 setupSlider('game-speed', 'gameSpeed');
 
+// Developer panel control buttons
+const saveDefaultsBtn = document.getElementById('save-defaults-btn');
+const resetDefaultsBtn = document.getElementById('reset-defaults-btn');
+
+saveDefaultsBtn.addEventListener('click', () => {
+    // Display current values for easy copying
+    const currentValues = {
+        playerSpeed: devSettings.playerSpeed,
+        playerMaxHealth: devSettings.playerMaxHealth,
+        shootCooldown: devSettings.shootCooldown,
+        enemySpeed: devSettings.enemySpeed,
+        enemySpawnRate: devSettings.enemySpawnRate,
+        enemyBaseHealth: devSettings.enemyBaseHealth,
+        starCount: devSettings.starCount,
+        starSpeed: devSettings.starSpeed,
+        gameSpeed: devSettings.gameSpeed
+    };
+    
+    console.log('=== CURRENT DEVELOPER SETTINGS ===');
+    console.log('Copy these values to update defaultSettings in the code:');
+    console.log(JSON.stringify(currentValues, null, 2));
+    console.log('=====================================');
+    
+    // Store in global variable for easy access
+    window.currentDevSettings = currentValues;
+    
+    alert('Current settings logged to console. Tell Claude to "commit the developer panel settings as defaults" to update the code.');
+});
+
+resetDefaultsBtn.addEventListener('click', () => {
+    // Reset all settings to original defaults
+    Object.assign(devSettings, defaultSettings);
+    
+    // Update all sliders and their values
+    document.querySelectorAll('.slider-group input[type="range"]').forEach(slider => {
+        const property = slider.id.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase()).replace(/^[a-z]/, match => match.toLowerCase());
+        if (property.includes('-')) {
+            // Handle special cases like player-speed -> playerSpeed
+            const camelCase = property.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
+            if (devSettings[camelCase] !== undefined) {
+                slider.value = devSettings[camelCase];
+                document.getElementById(slider.id + '-value').textContent = devSettings[camelCase];
+            }
+        }
+    });
+    
+    // Trigger callbacks for sliders that need them
+    player.speed = devSettings.playerSpeed;
+    player.maxHealth = devSettings.playerMaxHealth;
+    if (player.health > player.maxHealth) player.health = player.maxHealth;
+    
+    // Update star count
+    while (stars.length < devSettings.starCount) {
+        stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            z: Math.random() * 3 + 1,
+            size: Math.random() * 0.7 + 0.3
+        });
+    }
+    while (stars.length > devSettings.starCount) {
+        stars.pop();
+    }
+    
+    saveSettings();
+    alert('Settings reset to defaults!');
+});
+
 // Start game
 updateUI();
 gameLoop();
