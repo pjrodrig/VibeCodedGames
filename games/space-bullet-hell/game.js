@@ -10,8 +10,8 @@ let enemySpawnTimer = 0;
 let powerUpSpawnTimer = 0;
 let fpvMode = false;
 
-// Developer settings
-let devSettings = {
+// Developer settings with localStorage support
+const defaultSettings = {
     playerSpeed: 3,
     playerMaxHealth: 100,
     shootCooldown: 10,
@@ -22,6 +22,27 @@ let devSettings = {
     starSpeed: 0.5,
     gameSpeed: 1
 };
+
+// Load settings from localStorage or use defaults
+function loadSettings() {
+    const saved = localStorage.getItem('spaceBulletHellSettings');
+    if (saved) {
+        try {
+            return {...defaultSettings, ...JSON.parse(saved)};
+        } catch (e) {
+            console.warn('Failed to parse saved settings, using defaults');
+            return {...defaultSettings};
+        }
+    }
+    return {...defaultSettings};
+}
+
+// Save settings to localStorage
+function saveSettings() {
+    localStorage.setItem('spaceBulletHellSettings', JSON.stringify(devSettings));
+}
+
+let devSettings = loadSettings();
 
 // Starfield
 const stars = [];
@@ -990,9 +1011,38 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+// Player settings (separate from developer settings)
+function loadPlayerSettings() {
+    const saved = localStorage.getItem('spaceBulletHellPlayerSettings');
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            console.warn('Failed to parse saved player settings');
+            return {};
+        }
+    }
+    return {};
+}
+
+function savePlayerSettings(settings) {
+    localStorage.setItem('spaceBulletHellPlayerSettings', JSON.stringify(settings));
+}
+
+const playerSettings = loadPlayerSettings();
+
 // Volume slider functionality
 const volumeSlider = document.getElementById('volume-slider');
 const volumeValue = document.getElementById('volume-value');
+
+// Load saved volume setting
+if (playerSettings.volume !== undefined) {
+    volumeSlider.value = playerSettings.volume;
+    volumeValue.textContent = `${playerSettings.volume}%`;
+    if (window.audioManager) {
+        window.audioManager.setVolume(playerSettings.volume / 100);
+    }
+}
 
 volumeSlider.addEventListener('input', (e) => {
     const volume = e.target.value / 100;
@@ -1000,6 +1050,10 @@ volumeSlider.addEventListener('input', (e) => {
         window.audioManager.setVolume(volume);
     }
     volumeValue.textContent = `${e.target.value}%`;
+    
+    // Save volume setting
+    playerSettings.volume = parseInt(e.target.value);
+    savePlayerSettings(playerSettings);
 });
 
 // FPV toggle functionality
@@ -1076,10 +1130,15 @@ function setupSlider(id, property, callback) {
     const slider = document.getElementById(id);
     const valueSpan = document.getElementById(id + '-value');
     
+    // Set initial values from saved settings
+    slider.value = devSettings[property];
+    valueSpan.textContent = devSettings[property];
+    
     slider.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
         devSettings[property] = value;
         valueSpan.textContent = value;
+        saveSettings(); // Save to localStorage when changed
         if (callback) callback(value);
     });
 }
