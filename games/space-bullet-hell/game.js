@@ -553,7 +553,7 @@ function updateFinalBoss() {
             }
             if (boss.laserCharging) {
                 boss.laserTimer++;
-                if (boss.laserTimer === 60) { // 1 second charge
+                if (boss.laserTimer === 120) { // 2 second charge (was 1 second)
                     shootFinalBossBullet('laser');
                     boss.laserCharging = false;
                 }
@@ -1693,17 +1693,35 @@ function drawBoss() {
         
         // Show laser charging warning
         if (boss.laserCharging) {
-            ctx.fillStyle = '#ff0000';
-            ctx.font = '24px Arial';
+            // Pulsing warning text
+            const pulse = Math.sin(boss.laserTimer * 0.1) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
+            ctx.font = '28px Arial';
             ctx.fillText('⚠️ LASER CHARGING ⚠️', canvas.width / 2, 100);
             
-            // Draw laser targeting line
-            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-            ctx.lineWidth = 3;
+            // Charging percentage
+            const chargePercent = Math.min(boss.laserTimer / 120, 1);
+            ctx.font = '20px Arial';
+            ctx.fillStyle = '#ff0';
+            ctx.fillText(`${Math.floor(chargePercent * 100)}%`, canvas.width / 2, 130);
+            
+            // Draw laser targeting line with increasing intensity
+            ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + chargePercent * 0.5})`;
+            ctx.lineWidth = 3 + chargePercent * 5;
             ctx.beginPath();
             ctx.moveTo(boss.x - boss.size / 2, boss.y);
             ctx.lineTo(0, boss.y);
             ctx.stroke();
+            
+            // Add glow effect at high charge
+            if (chargePercent > 0.7) {
+                ctx.strokeStyle = `rgba(255, 255, 0, ${(chargePercent - 0.7) * 2})`;
+                ctx.lineWidth = 10;
+                ctx.beginPath();
+                ctx.moveTo(boss.x - boss.size / 2, boss.y);
+                ctx.lineTo(0, boss.y);
+                ctx.stroke();
+            }
         }
     } else {
         patterns = ['Rapid Fire', 'Spread Shot', 'Spiral Attack'];
