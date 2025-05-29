@@ -925,7 +925,8 @@ function levelUp() {
     level++;
     player.health = Math.min(player.health + 20, player.maxHealth);
     updateUI();
-    createParticles(canvas.width / 2, canvas.height / 2, '⭐', 20);
+    // Create star particles at player position, not center of screen
+    createParticles(player.x, player.y, '⭐', 20);
     if (window.audioManager) {
         window.audioManager.playPowerUp();
     }
