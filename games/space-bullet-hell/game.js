@@ -22,6 +22,8 @@ const defaultSettings = {
     enemySpeed: 1.5,
     enemySpawnRate: 180,
     enemyBaseHealth: 50,
+    enemyFireRate: 120,
+    enemyDamage: 20,
     starCount: 60,
     starSpeed: 0.5,
     gameSpeed: 1
@@ -416,7 +418,7 @@ function updateEnemies() {
         
         // Shooting patterns
         enemy.shootTimer++;
-        if (enemy.shootTimer > 90) {
+        if (enemy.shootTimer > devSettings.enemyFireRate) {
             shootEnemyBullet(enemy);
             enemy.shootTimer = 0;
         }
@@ -592,10 +594,10 @@ function checkCollisions() {
         if (distance(bullet.x, bullet.y, player.x, player.y) < player.size / 2 + bullet.size) {
             if (!invincible) {
                 if (player.shield > 0) {
-                    player.shield -= 10;
+                    player.shield -= devSettings.enemyDamage;
                     createParticles(player.x, player.y, '🛡️', 3);
                 } else {
-                    player.health -= 10;
+                    player.health -= devSettings.enemyDamage;
                     createParticles(player.x, player.y, '💢', 5);
                     if (window.audioManager) {
                         window.audioManager.playPlayerDamage();
@@ -639,7 +641,7 @@ function checkCollisions() {
             enemiesKilled++;
             
             if (!invincible) {
-                player.health -= 20;
+                player.health -= devSettings.enemyDamage * 2; // Collision does double damage
                 if (window.audioManager) {
                     window.audioManager.playExplosion();
                     window.audioManager.playPlayerDamage();
@@ -1290,6 +1292,10 @@ setupSlider('star-count', 'starCount', (value) => {
 setupSlider('star-speed', 'starSpeed');
 
 setupSlider('game-speed', 'gameSpeed');
+
+setupSlider('enemy-fire-rate', 'enemyFireRate');
+
+setupSlider('enemy-damage', 'enemyDamage');
 
 // Invincibility toggle
 const invincibilityToggle = document.getElementById('invincibility-toggle');
