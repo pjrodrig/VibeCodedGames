@@ -617,7 +617,10 @@ function checkCollisions() {
     powerUps = powerUps.filter(powerUp => {
         if (distance(powerUp.x, powerUp.y, player.x, player.y) < player.size / 2 + powerUp.size / 2) {
             applyPowerUp(powerUp.type);
-            createParticles(powerUp.x, powerUp.y, powerUp.emoji, 8);
+            
+            // Create collection animation
+            createPowerUpCollectionAnimation(powerUp.x, powerUp.y, powerUp.emoji, powerUp.type);
+            
             if (window.audioManager) {
                 window.audioManager.playPowerUp();
             }
@@ -668,7 +671,6 @@ function applyPowerUp(type) {
             player.shield = Math.min(player.shield + 50, 100);
             break;
     }
-    score += 50;
     updateUI();
 }
 
@@ -689,6 +691,48 @@ function createParticles(x, y, emoji, count) {
 function createExplosion(x, y) {
     createParticles(x, y, '🔥', 10);
     createParticles(x, y, '💥', 5);
+}
+
+function createPowerUpCollectionAnimation(x, y, emoji, type) {
+    // Create ring of particles expanding outward
+    const particleCount = 12;
+    for (let i = 0; i < particleCount; i++) {
+        const angle = (i / particleCount) * Math.PI * 2;
+        particles.push({
+            x: x,
+            y: y,
+            dx: Math.cos(angle) * 3,
+            dy: Math.sin(angle) * 3,
+            life: 40,
+            emoji: '✨'
+        });
+    }
+    
+    // Create floating text effect
+    particles.push({
+        x: x,
+        y: y,
+        dx: 0,
+        dy: -2,
+        life: 60,
+        emoji: emoji,
+        size: 30,
+        isText: true
+    });
+    
+    // Add colored sparkles based on type
+    const sparkleEmoji = type === 'health' ? '❤️' : type === 'shield' ? '🔵' : '⚡';
+    for (let i = 0; i < 6; i++) {
+        particles.push({
+            x: x + (Math.random() - 0.5) * 20,
+            y: y + (Math.random() - 0.5) * 20,
+            dx: (Math.random() - 0.5) * 2,
+            dy: -Math.random() * 2 - 1,
+            life: 30,
+            emoji: sparkleEmoji,
+            size: 12
+        });
+    }
 }
 
 function updateParticles() {
@@ -863,22 +907,26 @@ function drawPowerUps() {
     ctx.textBaseline = 'middle';
     
     powerUps.forEach(powerUp => {
-        ctx.save();
-        ctx.translate(powerUp.x, powerUp.y);
-        ctx.rotate(Date.now() * 0.002);
-        ctx.fillText(powerUp.emoji, 0, 0);
-        ctx.restore();
+        // Draw without rotation to keep powerups upright
+        ctx.fillText(powerUp.emoji, powerUp.x, powerUp.y);
     });
 }
 
 function drawParticles() {
-    ctx.font = '16px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
     particles.forEach(particle => {
         ctx.save();
-        ctx.globalAlpha = particle.life / 30;
+        
+        // Set font size based on particle size
+        const fontSize = particle.size || 16;
+        ctx.font = `${fontSize}px Arial`;
+        
+        // Fade out based on initial life
+        const maxLife = particle.isText ? 60 : 40;
+        ctx.globalAlpha = particle.life / maxLife;
+        
         ctx.fillText(particle.emoji, particle.x, particle.y);
         ctx.restore();
     });
@@ -1045,9 +1093,12 @@ function gameLoop() {
             enemySpawnTimer = 0;
         }
         
-        // Spawn power-ups
+        // Spawn power-ups (less frequent and more random)
         powerUpSpawnTimer++;
-        if (powerUpSpawnTimer > 300) {
+        const minSpawnTime = 600; // 10 seconds minimum
+        const maxSpawnTime = 1200; // 20 seconds maximum
+        
+        if (powerUpSpawnTimer > minSpawnTime + Math.random() * (maxSpawnTime - minSpawnTime)) {
             spawnPowerUp();
             powerUpSpawnTimer = 0;
         }
